@@ -1,0 +1,97 @@
+export enum DonationType {
+  WHOLE_BLOOD = "whole_blood",
+  PLATELET = "platelet",
+  DOUBLE_RED_CELL = "double_red_cell"
+}
+
+export enum UserRole {
+  PATIENT = 'PATIENT',
+  SPECIALIST = 'SPECIALIST',
+  DONOR = 'DONOR',
+  HOSPITAL = 'HOSPITAL',
+  ADMIN = 'ADMIN',
+}
+
+export enum ConsultationStatus {
+  PENDING = 'PENDING',
+  UPCOMING = 'UPCOMING',
+  CONFIRMED = 'CONFIRMED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  PENDING_PAYOUT = 'PENDING_PAYOUT',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+  DECLINED = 'DECLINED',
+  NO_SHOW = 'NO_SHOW',
+  ARCHIVED = 'ARCHIVED',
+  DISPUTED = 'DISPUTED',
+}
+
+export enum AppointmentType {
+  INITIAL = 'INITIAL',
+  FOLLOWUP = 'FOLLOWUP',
+}
+
+export enum UrgencyLevel {
+  CRITICAL = 'CRITICAL',
+  URGENT = 'URGENT',
+  NORMAL = 'NORMAL',
+}
+
+export enum DonationStatus {
+  PENDING = 'PENDING',
+  CONFIRMED = 'CONFIRMED',
+  ACCEPTED = 'ACCEPTED',
+  DECLINED = 'DECLINED',
+  DONATED = 'DONATED',
+  VERIFIED = 'VERIFIED',
+  COMPLETED = 'COMPLETED',
+}
+
+export enum ReferralStatus {
+  CREATED = 'CREATED',
+  SENT = 'SENT',
+  ACCEPTED = 'ACCEPTED',
+  COMPLETED = 'COMPLETED',
+  DECLINED = 'DECLINED',
+}
+
+export enum TransactionType {
+  CREDIT = 'CREDIT',
+  DEBIT = 'DEBIT',
+  TRANSFER_IN = 'TRANSFER_IN',
+  TRANSFER_OUT = 'TRANSFER_OUT',
+  REFUND = 'REFUND',
+  PLATFORM_FEE = 'PLATFORM_FEE',
+  CONSULTATION_PAYMENT = 'CONSULTATION_PAYMENT',
+  REFERRAL_REDEMPTION = 'REFERRAL_REDEMPTION',
+  WALLET_TOPUP = 'WALLET_TOPUP',
+  PAYMENT = 'PAYMENT',
+}
+
+export enum TransactionStatus {
+  PENDING = 'PENDING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+}
+
+export enum PayoutStatus {
+  PENDING = 'PENDING',
+  AUTO_APPROVED = 'AUTO_APPROVED',
+  PENDING_REVIEW = 'PENDING_REVIEW',
+  PAID = 'PAID',
+  HELD = 'HELD',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum MessageType {
+  TEXT = 'TEXT',
+  IMAGE = 'IMAGE',
+  DOCUMENT = 'DOCUMENT',
+  VOICE_NOTE = 'VOICE_NOTE',
+}
+
+export enum CancellationPolicy {
+  H24 = 'H24',
+  H48 = 'H48',
+  NO_REFUND = 'NO_REFUND',
+}

@@ -1,0 +1,76 @@
+{
+  "expo": {
+    "name": "RubiMedik",
+    "slug": "rubimedik",
+    "owner": "gconnect",
+    "scheme": "rubimedik",
+    "version": "1.0.0",
+    "entryPoint": "./index",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#D32F2F"
+    },
+    "ios": {
+      "bundleIdentifier": "com.rubimedik.app",
+      "supportsTablet": true,
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.542307823559-n0fnknt1a6j5h1atdbn33ph4993p1r5p"
+            ]
+          }
+        ]
+      }
+    },
+    "android": {
+      "package": "com.rubimedik.app",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker",
+      "expo-web-browser",
+      "expo-dev-client",
+      "@react-native-google-signin/google-signin",
+        [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.jpg",
+          "color": "#D32F2F"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2aae4331-72b5-43d5-811e-036af7a51d7c"
+      }
+    },
+    
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  }
+  }
+}

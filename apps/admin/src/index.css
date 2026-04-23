@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+  --color-card: var(--color-card);
+  --color-primary: var(--color-primary);
+  
+  --color-textPrimary: var(--color-textPrimary);
+  --color-textSecondary: var(--color-textSecondary);
+  --color-textMuted: var(--color-textMuted);
+  --color-textDisabled: var(--color-textDisabled);
+  
+  --color-border: var(--color-border);
+  
+  --color-success: var(--color-success);
+  --color-success-bg: var(--color-success-bg);
+  --color-success-text: var(--color-success-text);
+
+  --color-warning: var(--color-warning);
+  --color-warning-bg: var(--color-warning-bg);
+  --color-warning-text: var(--color-warning-text);
+
+  --color-danger: var(--color-danger);
+  --color-danger-bg: var(--color-danger-bg);
+  --color-danger-text: var(--color-danger-text);
+
+  --color-info: var(--color-info);
+  --color-info-bg: var(--color-info-bg);
+  --color-info-text: var(--color-info-text);
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+:root {
+  --color-background: #FFFFFF;
+  --color-surface: #F9FAFB;
+  --color-card: #F9FAFB;
+  --color-primary: #EF4444;
+  
+  --color-textPrimary: #111827;
+  --color-textSecondary: #6B7280;
+  --color-textMuted: #9CA3AF;
+  --color-textDisabled: #D1D5DB;
+  
+  --color-border: #E5E7EB;
+
+  --color-success: #22C55E;
+  --color-success-bg: #ecfdf5;
+  --color-success-text: #059669;
+
+  --color-warning: #F59E0B;
+  --color-warning-bg: #fff7ed;
+  --color-warning-text: #ea580c;
+
+  --color-danger: #EF4444;
+  --color-danger-bg: #fef2f2;
+  --color-danger-text: #dc2626;
+
+  --color-info: #3b82f6;
+  --color-info-bg: #eff6ff;
+  --color-info-text: #2563eb;
+}
+
+.dark {
+  --color-background: #0F172A;
+  --color-surface: #1E293B;
+  --color-card: #1E293B;
+  --color-primary: #EF4444;
+  
+  --color-textPrimary: #E2E8F0;
+  --color-textSecondary: #94A3B8;
+  --color-textMuted: #64748B;
+  --color-textDisabled: #475569;
+  
+  --color-border: #334155;
+
+  --color-success: #22C55E;
+  --color-success-bg: rgba(34, 197, 94, 0.1);
+  --color-success-text: #4ade80;
+
+  --color-warning: #F59E0B;
+  --color-warning-bg: rgba(245, 158, 11, 0.1);
+  --color-warning-text: #fbbf24;
+
+  --color-danger: #EF4444;
+  --color-danger-bg: rgba(239, 68, 68, 0.1);
+  --color-danger-text: #f87171;
+
+  --color-info: #3b82f6;
+  --color-info-bg: rgba(59, 130, 246, 0.1);
+  --color-info-text: #60a5fa;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-textPrimary transition-colors duration-300 font-sans;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-colors;
+  }
+  
+  .card {
+    @apply bg-card rounded-xl shadow-sm border border-border overflow-hidden transition-colors duration-300;
+  }
+}

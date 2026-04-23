@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RubiMedik — Blood Donation & Telemedicine Platform</title>
+    <link rel="icon" href="assets/favicon.jpg" type="image/jpeg">
+    <meta name="description" content="RubiMedik connects patients, donors, specialists, and hospitals in one seamless ecosystem for blood donation and telemedicine referrals.">
+    <meta name="keywords" content="blood donation, telemedicine, healthcare, medical referrals, RubiMedik, blood bank, specialist consultation">
+    <meta name="author" content="RubiMedik">
+    <meta property="og:title" content="RubiMedik — Blood Donation & Telemedicine Platform">
+    <meta property="og:description" content="Connecting patients, donors, specialists, and hospitals in one unified healthcare ecosystem.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="assets/app-mockup.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav id="navbar" class="navbar">
+        <div class="container nav-container">
+            <a href="#" class="logo" aria-label="RubiMedik Home">
+                <img src="assets/favicon.jpg" alt="RubiMedik Logo" class="logo-icon" style="width: 32px; height: 32px; border-radius: 8px; object-fit: contain;">
+                <span class="logo-text">Rubi<span class="logo-accent">Medik</span></span>
+            </a>
+            <div class="nav-links" id="navLinks">
+                <a href="#features" class="nav-link">Features</a>
+                <a href="#how-it-works" class="nav-link">How It Works</a>
+                <a href="#for-who" class="nav-link">Who It's For</a>
+                <a href="#referrals" class="nav-link">Referrals</a>
+                <a href="#faq" class="nav-link">FAQ</a>
+                <a href="#download" class="nav-btn">Download App</a>
+            </div>
+            <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle navigation menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="hero" class="hero">
+        <div class="hero-bg-elements">
+            <div class="hero-circle hero-circle-1"></div>
+            <div class="hero-circle hero-circle-2"></div>
+            <div class="hero-circle hero-circle-3"></div>
+            <div class="hero-grid"></div>
+        </div>
+        <div class="container hero-container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <span class="pulse-dot"></span>
+                    <span>Now Available on iOS & Android</span>
+                </div>
+                <h1 class="hero-title">
+                    Healthcare at your <span class="gradient-text">fingertips.</span>
+                </h1>
+                <p class="hero-subtitle">
+                    RubiMedik connects patients, blood donors, specialists, and hospitals in one unified platform — making blood donation seamless and telemedicine accessible to everyone.
+                </p>
+                <div class="hero-cta">
+                    <a href="#" class="download-btn download-btn-ios" id="downloadIos">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M18.71 19.5C17.88 20.74 17 21.95 15.66 21.97C14.32 22 13.89 21.18 12.37 21.18C10.84 21.18 10.37 21.95 9.09997 22C7.78997 22.05 6.79997 20.68 5.95997 19.47C4.24997 17 2.93997 12.45 4.69997 9.39C5.56997 7.87 7.12997 6.91 8.81997 6.88C10.1 6.86 11.32 7.75 12.11 7.75C12.89 7.75 14.37 6.68 15.92 6.84C16.57 6.87 18.39 7.1 19.56 8.82C19.47 8.88 17.39 10.1 17.41 12.63C17.44 15.65 20.06 16.66 20.09 16.67C20.06 16.74 19.67 18.11 18.71 19.5ZM13 3.5C13.73 2.67 14.94 2.04 15.94 2C16.07 3.17 15.6 4.35 14.9 5.19C14.21 6.04 13.07 6.7 11.95 6.61C11.8 5.46 12.36 4.26 13 3.5Z"/>
+                        </svg>
+                        <div class="btn-text">
+                            <span class="btn-label">Download on the</span>
+                            <span class="btn-store">App Store</span>
+                        </div>
+                    </a>
+                    <a href="#" class="download-btn download-btn-android" id="downloadAndroid">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3.18 6.6C3.06 6.96 3 7.35 3 7.77V16.23C3 16.65 3.06 17.04 3.18 17.4L12.07 12L3.18 6.6ZM14.54 10.54L5.44 4.18C4.97 3.88 4.42 3.75 3.91 3.85L13.09 12L14.54 10.54ZM20.37 11.04L17.69 9.5L15.42 11.13L17.68 12.76L20.37 11.04ZM3.91 20.15C4.42 20.25 4.97 20.12 5.44 19.82L14.54 13.46L13.09 12L3.91 20.15Z"/>
+                        </svg>
+                        <div class="btn-text">
+                            <span class="btn-label">Get it on</span>
+                            <span class="btn-store">Google Play</span>
+                        </div>
+                    </a>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <div class="stat-row"><span class="stat-number" data-count="10000">0</span><span class="stat-suffix">+</span></div>
+                        <span class="stat-label">Active Users</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <div class="stat-row"><span class="stat-number" data-count="500">0</span><span class="stat-suffix">+</span></div>
+                        <span class="stat-label">Verified Specialists</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <div class="stat-row"><span class="stat-number" data-count="50">0</span><span class="stat-suffix">+</span></div>
+                        <span class="stat-label">Partner Hospitals</span>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="large-mockup-wrapper">
+                    <img src="assets/mockup-dual.png" alt="RubiMedik Doctor Dashboard" class="large-mockup-image" loading="eager">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Trusted By / Social Proof -->
+    <section class="trusted-by">
+        <div class="container">
+            <p class="trusted-label">Trusted by leading healthcare institutions</p>
+            <div class="trusted-logos">
+                <div class="trust-item">
+                    <img src="assets/cedar-ruby-logo.png" alt="Cedar & Ruby Health Alliance" class="trust-logo">
+                    <span class="trust-name">Cedar & Ruby Health Alliance</span>
+                </div>
+                <div class="trust-item">
+                    <div class="trust-logo placeholder-logo">🩺</div>
+                    <span class="trust-name">MedConnect Network</span>
+                </div>
+                <div class="trust-item">
+                    <div class="trust-logo placeholder-logo">🔬</div>
+                    <span class="trust-name">LifeBlood Foundation</span>
+                </div>
+                <div class="trust-item">
+                    <div class="trust-logo placeholder-logo">⚕️</div>
+                    <span class="trust-name">National Health Service</span>
+                </div>
+                <div class="trust-item">
+                    <div class="trust-logo placeholder-logo">💉</div>
+                    <span class="trust-name">DonorHub Africa</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Features</span>
+                <h2 class="section-title">Everything you need, <br><span class="gradient-text">in one platform.</span></h2>
+                <p class="section-subtitle">From blood donation to telemedicine consultations, RubiMedik integrates every aspect of modern healthcare access.</p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card feature-card-large" id="featureBlood">
+                    <div class="feature-icon-wrap feature-icon-red">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2C12 2 4 10 4 16C4 20.4183 7.58172 24 12 24C16.4183 24 20 20.4183 20 16C20 10 12 2 12 2Z"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Blood Donation & Requests</h3>
+                    <p class="feature-desc">Request specific blood types with urgency levels, find nearby partner hospitals with available stock, and book donation appointments — all in real time.</p>
+                    <ul class="feature-list">
+                        <li>Real-time blood availability tracking</li>
+                        <li>Smart matching algorithm</li>
+                        <li>Donation history & scheduling</li>
+                    </ul>
+                </div>
+                <div class="feature-card" id="featureTelemed">
+                    <div class="feature-icon-wrap feature-icon-blue">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="23 7 16 12 23 17 23 7"/>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Telemedicine Consultations</h3>
+                    <p class="feature-desc">Connect with verified specialists via secure voice and video calls from the comfort of your home.</p>
+                </div>
+                <div class="feature-card" id="featureReferral">
+                    <div class="feature-icon-wrap feature-icon-green">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 21V5C16 3.89543 15.1046 3 14 3H10C8.89543 3 8 3.89543 8 5V21"/>
+                            <path d="M4 11H8"/>
+                            <path d="M16 11H20"/>
+                            <rect x="2" y="11" width="6" height="10" rx="1"/>
+                            <rect x="16" y="11" width="6" height="10" rx="1"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Smart Referral System</h3>
+                    <p class="feature-desc">Get referred to the right specialist or hospital based on your symptoms, location, and urgency level.</p>
+                </div>
+                <div class="feature-card" id="featureDirectory">
+                    <div class="feature-icon-wrap feature-icon-purple">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21V19C17 16.7909 15.2091 15 13 15H5C2.79086 15 1 16.7909 1 19V21"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21V19C22.9986 17.1771 21.765 15.5857 20 15.13"/>
+                            <path d="M16 3.13C17.7699 3.58317 19.0078 5.17799 19.0078 7.005C19.0078 8.83201 17.7699 10.4268 16 10.88"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Specialist Directory</h3>
+                    <p class="feature-desc">Browse verified doctors by specialization, location, and availability. View credentials, ratings, and book instantly.</p>
+                </div>
+                <div class="feature-card" id="featureDashboard">
+                    <div class="feature-icon-wrap feature-icon-amber">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7"/>
+                            <rect x="14" y="3" width="7" height="7"/>
+                            <rect x="14" y="14" width="7" height="7"/>
+                            <rect x="3" y="14" width="7" height="7"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Personalized Dashboards</h3>
+                    <p class="feature-desc">Role-based dashboards for patients, donors, specialists, and hospitals with real-time analytics and tracking.</p>
+                </div>
+                <div class="feature-card" id="featureSecurity">
+                    <div class="feature-icon-wrap feature-icon-teal">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22S20 18 20 12V5L12 2L4 5V12C4 18 12 22 12 22Z"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Secure & Compliant</h3>
+                    <p class="feature-desc">End-to-end encryption, role-based access control, and full compliance with health data regulations to keep your data safe.</p>
+                </div>
+                <div class="feature-card" id="featureNotifications">
+                    <div class="feature-icon-wrap feature-icon-rose">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z"/>
+                            <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Smart Notifications</h3>
+                    <p class="feature-desc">Push notifications, in-app alerts, and email/SMS for appointment reminders, blood match updates, and referral status changes.</p>
+                </div>
+                <div class="feature-card" id="featureRecords">
+                    <div class="feature-icon-wrap feature-icon-indigo">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8L14 2Z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10,9 9,9 8,9"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Medical Records Access</h3>
+                    <p class="feature-desc">Securely share medical history with specialists (with consent). Doctors can upload consultation notes and prescriptions.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works" class="how-it-works">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">How It Works</span>
+                <h2 class="section-title">Simple steps to <br><span class="gradient-text">better healthcare.</span></h2>
+                <p class="section-subtitle">Whether you need blood, want to donate, or seek specialist care — RubiMedik makes it effortless.</p>
+            </div>
+            <div class="steps-container">
+                <div class="step-card" id="step1">
+                    <div class="step-number">01</div>
+                    <div class="step-content">
+                        <h3>Sign Up & Verify</h3>
+                        <p>Create your account, choose your role (patient, specialist, or hospital), and complete your profile. Specialists and hospitals go through a quick verification process.</p>
+                    </div>
+                    <div class="step-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M20 21V19C20 16.7909 18.2091 15 16 15H8C5.79086 15 4 16.7909 4 19V21"/>
+                            <circle cx="12" cy="7" r="4"/>
+                            <path d="M16 11L18 13L22 9" stroke="#22c55e"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="step-connector">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" opacity="0.3">
+                        <path d="M12 5V19M12 19L5 12M12 19L19 12"/>
+                    </svg>
+                </div>
+                <div class="step-card" id="step2">
+                    <div class="step-number">02</div>
+                    <div class="step-content">
+                        <h3>Request or Offer Care</h3>
+                        <p>Need blood? Request it. Want to donate? Register as a donor. Need a specialist? Search the directory and submit a referral request with your symptoms.</p>
+                    </div>
+                    <div class="step-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M12 2C12 2 4 10 4 16C4 20.4183 7.58172 24 12 24C16.4183 24 20 20.4183 20 16C20 10 12 2 12 2Z"/>
+                            <path d="M12 12V16M12 16H8M12 16H16" stroke="#DC2626"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="step-connector">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" opacity="0.3">
+                        <path d="M12 5V19M12 19L5 12M12 19L19 12"/>
+                    </svg>
+                </div>
+                <div class="step-card" id="step3">
+                    <div class="step-number">03</div>
+                    <div class="step-content">
+                        <h3>Get Matched & Connected</h3>
+                        <p>Our smart algorithm matches your blood request with available stock, or connects you with the right specialist. Book your appointment or join a teleconsultation instantly.</p>
+                    </div>
+                    <div class="step-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <polygon points="23 7 16 12 23 17 23 7"/>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                            <circle cx="8" cy="12" r="2" fill="#DC2626" stroke="none"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="step-connector">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" opacity="0.3">
+                        <path d="M12 5V19M12 19L5 12M12 19L19 12"/>
+                    </svg>
+                </div>
+                <div class="step-card" id="step4">
+                    <div class="step-number">04</div>
+                    <div class="step-content">
+                        <h3>Track & Follow Up</h3>
+                        <p>Monitor your referral status, donation history, and upcoming appointments through your personalized dashboard. Get notified at every step of the way.</p>
+                    </div>
+                    <div class="step-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <polyline points="9,11 12,14 22,4" stroke="#22c55e" stroke-width="2"/>
+                        </svg>
+                    </div>
+                </div>
+        </div>
+    </section>
+
+    <!-- Who It's For Section -->
+    <section id="for-who" class="for-who">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Who It's For</span>
+                <h2 class="section-title">Built for <span class="gradient-text">everyone</span> in healthcare.</h2>
+                <p class="section-subtitle">RubiMedik serves the needs of every stakeholder in the healthcare ecosystem.</p>
+            </div>
+            <div class="persona-grid">
+                <div class="persona-card" id="personaPatient">
+                    <div class="persona-avatar persona-avatar-patient">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M20 21V19C20 16.7909 18.2091 15 16 15H8C5.79086 15 4 16.7909 4 19V21"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                    </div>
+                    <h3>Patients & Donors</h3>
+                    <p>Request blood, donate easily, find trusted specialists, and manage your healthcare — all from your phone.</p>
+                    <ul class="persona-features">
+                        <li>Request blood by type & urgency</li>
+                        <li>Register as a blood donor</li>
+                        <li>Book specialist consultations</li>
+                        <li>Track donation & referral history</li>
+                    </ul>
+                </div>
+                <div class="persona-card" id="personaSpecialist">
+                    <div class="persona-avatar persona-avatar-specialist">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M12 14L12 6"/>
+                            <path d="M9 9L12 6L15 9"/>
+                            <path d="M16 18H8C5.79 18 4 16.21 4 14V12"/>
+                            <path d="M20 12V14C20 16.21 18.21 18 16 18"/>
+                            <circle cx="12" cy="20" r="2"/>
+                        </svg>
+                    </div>
+                    <h3>Specialists & Doctors</h3>
+                    <p>Expand your reach with a verified profile, receive referrals, and consult patients remotely via secure video calls.</p>
+                    <ul class="persona-features">
+                        <li>Verified professional profile</li>
+                        <li>Receive & manage referrals</li>
+                        <li>Conduct teleconsultations</li>
+                        <li>Upload notes & prescriptions</li>
+                    </ul>
+                </div>
+                <div class="persona-card" id="personaHospital">
+                    <div class="persona-avatar persona-avatar-hospital">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M3 21H21"/>
+                            <path d="M5 21V7L12 3L19 7V21"/>
+                            <path d="M9 21V15H15V21"/>
+                            <path d="M10 9H14"/>
+                            <path d="M12 7V11"/>
+                        </svg>
+                    </div>
+                    <h3>Hospitals & Blood Banks</h3>
+                    <p>Manage your blood bank inventory, coordinate with donors, receive patient referrals, and track everything on a powerful dashboard.</p>
+                    <ul class="persona-features">
+                        <li>Manage blood bank inventory</li>
+                        <li>Coordinate donor appointments</li>
+                        <li>Receive patient referrals</li>
+                        <li>Generate analytics reports</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Impact / Stats Section -->
+    <section class="impact-section">
+        <div class="container">
+            <div class="impact-grid">
+                <div class="impact-card" id="impact1">
+                    <div class="impact-stat-row">
+                        <div class="impact-number" data-count="99.9">0</div>
+                        <div class="impact-suffix">%</div>
+                    </div>
+                    <div class="impact-label">Platform Uptime SLA</div>
+                </div>
+                <div class="impact-card" id="impact2">
+                    <div class="impact-stat-row">
+                        <div class="impact-number" data-count="300">0</div>
+                        <div class="impact-suffix">ms</div>
+                    </div>
+                    <div class="impact-label">Average API Response</div>
+                </div>
+                <div class="impact-card" id="impact3">
+                    <div class="impact-stat-row">
+                        <div class="impact-number" data-count="256">0</div>
+                        <div class="impact-suffix">-bit</div>
+                    </div>
+                    <div class="impact-label">Data Encryption</div>
+                </div>
+                <div class="impact-card" id="impact4">
+                    <div class="impact-stat-row">
+                        <div class="impact-number" data-count="24">0</div>
+                        <div class="impact-suffix">/7</div>
+                    </div>
+                    <div class="impact-label">Support & Monitoring</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="faq-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">FAQ</span>
+                <h2 class="section-title">Frequently Asked <span class="gradient-text">Questions</span></h2>
+                <p class="section-subtitle">Got questions? We've got answers. Here are the most common things people ask about RubiMedik.</p>
+            </div>
+            <div class="faq-container">
+                <div class="faq-item" id="faq1">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>What is RubiMedik?</span>
+                        <svg class="faq-chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>RubiMedik is an integrated healthcare platform that connects patients, blood donors, medical specialists, and hospitals. It enables seamless blood donation coordination, telemedicine consultations, and medical referrals — all in one app.</p>
+                    </div>
+                </div>
+                <div class="faq-item" id="faq2">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>How do I request blood through the app?</span>
+                        <svg class="faq-chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Simply sign up as a patient, go to the Blood Donation module, select "Request Blood", specify the blood type and urgency level, and choose a nearby partner hospital. Our algorithm will match your request with available blood stock and notify you when a match is found.</p>
+                    </div>
+                </div>
+                <div class="faq-item" id="faq3">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>How does the telemedicine feature work?</span>
+                        <svg class="faq-chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>You can search for verified specialists by specialization and location, submit a referral request with your symptoms, and schedule an appointment. Once confirmed, you can join a secure voice or video consultation directly from the app. Your medical history (with your consent) is shared with the specialist for better diagnosis.</p>
+                    </div>
+                </div>
+                <div class="faq-item" id="faq4">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>Is my medical data secure?</span>
+                        <svg class="faq-chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Absolutely. RubiMedik uses industry-standard security including OAuth2 authentication, 256-bit encryption for data at rest and in transit, role-based access control, and strict privacy policies. Your medical data is only shared with healthcare providers with your explicit consent.</p>
+                    </div>
+                </div>
+                <div class="faq-item" id="faq5">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>How do specialists and hospitals get verified?</span>
+                        <svg class="faq-chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Specialists must upload their professional credentials (medical license, certifications), and hospitals must provide institutional accreditation documents. Our admin team reviews and verifies all submissions before granting verified status, ensuring only trusted healthcare providers are on the platform.</p>
+                    </div>
+                </div>
+                <div class="faq-item" id="faq6">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>Can I be both a patient and a blood donor?</span>
+                        <svg class="faq-chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Yes! When you sign up as a patient, you have the option to also register as a blood donor. You can opt into blood donation, healthcare services, or both. You'll be able to track your donation history and receive notifications when your blood type is in demand.</p>
+                    </div>
+                </div>
+                <div class="faq-item" id="faq7">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>Is RubiMedik free to use?</span>
+                        <svg class="faq-chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>RubiMedik is free to download and use for patients and donors. Specialists and hospitals may have premium features available through subscription plans. Blood donation coordination is always free for all users.</p>
+                    </div>
+                </div>
+                <div class="faq-item" id="faq8">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>Which platforms is RubiMedik available on?</span>
+                        <svg class="faq-chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <p>RubiMedik is available on both iOS (App Store) and Android (Google Play). We also offer a web dashboard for specialists and hospital administrators to manage their activities from a desktop browser.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Referral Section -->
+    <section id="referrals" class="referral-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Referrals</span>
+                <h2 class="section-title">Invite others. Earn free <span class="gradient-text">consultations.</span></h2>
+                <p class="section-subtitle">Help others access healthcare and get rewarded when they join RubiMedik.</p>
+            </div>
+
+            <!-- How Referrals Work Cards -->
+            <div class="referral-grid">
+                <div class="referral-card">
+                    <div class="referral-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21V19C20 16.7909 18.2091 15 16 15H8C5.79086 15 4 16.7909 4 19V21"/><circle cx="12" cy="7" r="4"/><path d="M16 11h6"/><path d="M19 8v6"/></svg>
+                    </div>
+                    <h3>Invite Patients</h3>
+                    <p>Earn a free consultation credit when a patient signs up and books a consultation.</p>
+                </div>
+                <div class="referral-card">
+                    <div class="referral-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 14L12 6"/><path d="M9 9L12 6L15 9"/><path d="M16 18H8C5.79 18 4 16.21 4 14V12"/><path d="M20 12V14C20 16.21 18.21 18 16 18"/><circle cx="12" cy="20" r="2"/><path d="M20 6h-6"/><path d="M17 3v6"/></svg>
+                    </div>
+                    <h3>Invite Specialists</h3>
+                    <p>Earn a free consultation credit when a specialist joins and becomes verified.</p>
+                </div>
+                <div class="referral-card">
+                    <div class="referral-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21H21"/><path d="M5 21V7L12 3L19 7V21"/><path d="M9 21V15H15V21"/><path d="M10 9H14"/><path d="M12 7V11"/><path d="M20 11h-4"/><path d="M18 9v4"/></svg>
+                    </div>
+                    <h3>Invite Hospitals</h3>
+                    <p>Earn a free consultation credit when a hospital joins the network.</p>
+                </div>
+            </div>
+
+            <!-- 3 Step Flow -->
+            <div class="referral-steps">
+                <div class="referral-step">
+                    <div class="step-circle">1</div>
+                    <h4>Share your invite link</h4>
+                </div>
+                <div class="step-connector"></div>
+                <div class="referral-step">
+                    <div class="step-circle">2</div>
+                    <h4>They create an account</h4>
+                </div>
+                <div class="step-connector"></div>
+                <div class="referral-step">
+                    <div class="step-circle">3</div>
+                    <h4>You receive rewards</h4>
+                </div>
+            </div>
+
+            <!-- Referrals CTA -->
+            <div class="referral-actions">
+                <a href="#" class="btn-ref-primary" id="ctaStartReferring">Start Referring</a>
+                <a href="#" class="btn-ref-secondary" id="ctaReferralCreateAccount">Create Account</a>
+            </div>
+            
+            <p class="referral-trust-text">Referral rewards are applied after successful registration and verification.</p>
+        </div>
+    </section>
+
+    <!-- CTA / Download Section -->
+    <section id="download" class="cta-section">
+        <div class="container">
+            <div class="cta-card">
+                <div class="cta-bg-pattern"></div>
+                <div class="cta-content">
+                    <h2>Ready to transform your healthcare experience?</h2>
+                    <p>Download RubiMedik today and join thousands of users connecting with blood donors, trusted specialists, and partner hospitals.</p>
+                    <div class="cta-buttons">
+                        <a href="#" class="download-btn download-btn-ios download-btn-large" id="ctaIos">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M18.71 19.5C17.88 20.74 17 21.95 15.66 21.97C14.32 22 13.89 21.18 12.37 21.18C10.84 21.18 10.37 21.95 9.09997 22C7.78997 22.05 6.79997 20.68 5.95997 19.47C4.24997 17 2.93997 12.45 4.69997 9.39C5.56997 7.87 7.12997 6.91 8.81997 6.88C10.1 6.86 11.32 7.75 12.11 7.75C12.89 7.75 14.37 6.68 15.92 6.84C16.57 6.87 18.39 7.1 19.56 8.82C19.47 8.88 17.39 10.1 17.41 12.63C17.44 15.65 20.06 16.66 20.09 16.67C20.06 16.74 19.67 18.11 18.71 19.5ZM13 3.5C13.73 2.67 14.94 2.04 15.94 2C16.07 3.17 15.6 4.35 14.9 5.19C14.21 6.04 13.07 6.7 11.95 6.61C11.8 5.46 12.36 4.26 13 3.5Z"/>
+                            </svg>
+                            <div class="btn-text">
+                                <span class="btn-label">Download on the</span>
+                                <span class="btn-store">App Store</span>
+                            </div>
+                        </a>
+                        <a href="#" class="download-btn download-btn-android download-btn-large" id="ctaAndroid">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M3.18 6.6C3.06 6.96 3 7.35 3 7.77V16.23C3 16.65 3.06 17.04 3.18 17.4L12.07 12L3.18 6.6ZM14.54 10.54L5.44 4.18C4.97 3.88 4.42 3.75 3.91 3.85L13.09 12L14.54 10.54ZM20.37 11.04L17.69 9.5L15.42 11.13L17.68 12.76L20.37 11.04ZM3.91 20.15C4.42 20.25 4.97 20.12 5.44 19.82L14.54 13.46L13.09 12L3.91 20.15Z"/>
+                            </svg>
+                            <div class="btn-text">
+                                <span class="btn-label">Get it on</span>
+                                <span class="btn-store">Google Play</span>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer id="footer" class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="#" class="logo" aria-label="RubiMedik Home">
+                        <img src="assets/favicon.jpg" alt="RubiMedik Logo" class="logo-icon" style="width: 32px; height: 32px; border-radius: 8px; object-fit: contain;">
+                        <span class="logo-text">Rubi<span class="logo-accent">Medik</span></span>
+                    </a>
+                    <p class="footer-desc">Connecting patients, donors, specialists, and hospitals in one unified healthcare ecosystem.</p>
+                    <div class="footer-socials">
+                        <a href="#" class="social-link" aria-label="Twitter">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                        </a>
+                        <a href="#" class="social-link" aria-label="Facebook">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        </a>
+                        <a href="#" class="social-link" aria-label="Instagram">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                        </a>
+                        <a href="#" class="social-link" aria-label="LinkedIn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                        </a>
+                    </div>
+                </div>
+                <div class="footer-col">
+                    <h4>Product</h4>
+                    <ul>
+                        <li><a href="#features">Features</a></li>
+                        <li><a href="#how-it-works">How It Works</a></li>
+                        <li><a href="#for-who">Who It's For</a></li>
+                        <li><a href="#referrals">Referrals</a></li>
+                        <li><a href="#download">Download</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="#faq">FAQ</a></li>
+                        <li><a href="#">Blog</a></li>
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">Support Center</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Contact</h4>
+                    <ul class="contact-list">
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z"/><polyline points="22,6 12,13 2,6"/></svg>
+                            <a href="mailto:hello@rubimedik.com">hello@rubimedik.com</a>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92V19.92C22.0011 20.1985 21.9441 20.4742 21.8325 20.7293C21.7209 20.9845 21.5573 21.2136 21.3521 21.4019C21.1468 21.5901 20.9046 21.7335 20.6407 21.8227C20.3769 21.9119 20.0974 21.9451 19.82 21.92C16.7428 21.5856 13.787 20.5341 11.19 18.85C8.77382 17.3147 6.72533 15.2662 5.18999 12.85C3.49997 10.2412 2.44824 7.27099 2.11999 4.18C2.09501 3.90347 2.12787 3.62476 2.2165 3.36162C2.30513 3.09849 2.44756 2.85669 2.63476 2.65163C2.82196 2.44656 3.0498 2.28271 3.30379 2.17052C3.55777 2.05833 3.83233 2.00026 4.10999 2H7.10999C7.5953 1.99522 8.06579 2.16708 8.43376 2.48353C8.80173 2.79999 9.04207 3.23945 9.10999 3.72C9.23662 4.68007 9.47144 5.62273 9.80999 6.53C9.94454 6.88792 9.97366 7.27691 9.8939 7.65088C9.81415 8.02485 9.62886 8.36811 9.35999 8.64L8.08999 9.91C9.51355 12.4135 11.5864 14.4864 14.09 15.91L15.36 14.64C15.6319 14.3711 15.9751 14.1858 16.3491 14.1061C16.7231 14.0263 17.1121 14.0555 17.47 14.19C18.3773 14.5286 19.3199 14.7634 20.28 14.89C20.7658 14.9585 21.2094 15.2032 21.5265 15.5775C21.8437 15.9518 22.0122 16.4296 22 16.92Z"/></svg>
+                            <a href="tel:+2341234567890">+234 123 456 7890</a>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10C21 17 12 23 12 23C12 23 3 17 3 10C3 5.02944 7.02944 1 12 1C16.9706 1 21 5.02944 21 10Z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <span>Lagos, Nigeria</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 RubiMedik. All rights reserved.</p>
+                <div class="footer-legal">
+                    <a href="privacy.html">Privacy Policy</a>
+                    <a href="terms.html">Terms & Conditions</a>
+                    <a href="cookies.html">Cookie Policy</a>
+                    <a href="data-usage.html">Data Usage Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+
+
+    <script src="script.js"></script>
+</body>
+</html>
