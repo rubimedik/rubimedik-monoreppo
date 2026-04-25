@@ -166,8 +166,13 @@ export const CareHistoryScreen = () => {
     queryKey: ['care-history', user?.id],
     queryFn: async () => {
       const res = await api.get('/consultations/my');
-      // Filter for completed ones to represent history
-      return res.data.filter((app: any) => app.status === 'COMPLETED');
+      // Filter for completed ones to represent history and sort newest first
+      const items = res.data.filter((app: any) => app.status === 'COMPLETED');
+      return items.sort((a: any, b: any) => {
+        const dateA = new Date(a.completedAt || a.scheduledAt || a.createdAt).getTime();
+        const dateB = new Date(b.completedAt || b.scheduledAt || b.createdAt).getTime();
+        return dateB - dateA;
+      });
     },
     enabled: !!user?.id
   });

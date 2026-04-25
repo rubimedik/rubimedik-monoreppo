@@ -19,11 +19,13 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { AuthStackParamList } from '../navigation/AuthNavigator';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAppTheme } from '../hooks/useAppTheme';
+import Constants, { AppOwnership } from 'expo-constants';
 import { 
   GoogleSignin, 
   statusCodes 
 } from '@react-native-google-signin/google-signin';
 import { useAuthStore } from '../store/useAuthStore';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 
 type NavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
 type SignupRouteProp = RouteProp<AuthStackParamList, 'Signup'>;
@@ -40,6 +42,7 @@ export const SignupScreen = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleBackendGoogleLogin = async (idToken: string) => {
     setIsLoading(true);
@@ -60,6 +63,14 @@ export const SignupScreen = () => {
   };
 
   const handleGoogleLogin = async () => {
+    if (Constants.appOwnership === AppOwnership.Expo) {
+      Alert.alert(
+        'Not Supported',
+        'Google Sign-in is not supported in Expo Go. Please use a development build.'
+      );
+      return;
+    }
+
     try {
       await GoogleSignin.hasPlayServices();
       const response = await GoogleSignin.signIn();

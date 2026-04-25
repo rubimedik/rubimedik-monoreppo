@@ -6,6 +6,7 @@ import { RoleSelectionScreen } from '../screens/RoleSelectionScreen';
 import { SignupScreen } from '../screens/SignupScreen';
 import { OTPVerificationScreen } from '../screens/OTPVerificationScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
+import TwoFactorVerifyScreen from '../screens/TwoFactorVerifyScreen';
 import { UserRole } from '@repo/shared';
 
 import { useAuthStore } from '../store/useAuthStore';
@@ -17,6 +18,7 @@ export type AuthStackParamList = {
   Signup: { role: UserRole };
   OTPVerification: { email: string };
   ForgotPassword: { email?: string };
+  TwoFactorVerify: { userId: string, email: string, tempToken: string };
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
@@ -34,6 +36,7 @@ export const AuthNavigator = () => {
       <Stack.Screen name="Signup" component={SignupScreen} />
       <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="TwoFactorVerify" component={TwoFactorVerifyScreen} />
     </Stack.Navigator>
   );
 };

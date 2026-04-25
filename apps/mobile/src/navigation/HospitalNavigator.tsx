@@ -34,6 +34,8 @@ import { PaymentOTPScreen } from '../screens/PaymentOTPScreen';
 import { HospitalDonationMatchesScreen } from '../screens/HospitalDonationMatchesScreen';
 import { HospitalDonationDetailScreen } from '../screens/HospitalDonationDetailScreen';
 import { BloodRequestDetailScreen } from '../screens/BloodRequestDetailScreen';
+import { FulfilledRequestsScreen } from '../screens/FulfilledRequestsScreen';
+import { FulfilledRequestDetailScreen } from '../screens/FulfilledRequestDetailScreen';
 import { SavedCardsScreen } from '../screens/SavedCardsScreen';
 import { RecentActivitiesScreen } from '../screens/RecentActivitiesScreen';
 import { TransactionsHistoryScreen } from '../screens/TransactionsHistoryScreen';
@@ -80,6 +82,8 @@ export type HospitalStackParamList = {
   HospitalDonationMatches: undefined;
   HospitalDonationDetail: { matchId: string };
   BloodRequestDetail: { requestId: string };
+  FulfilledRequests: undefined;
+  FulfilledRequestDetail: { requestId: string };
 
   SavedCards: undefined;
   RecentActivities: { type: 'hospital' | 'specialist' };
@@ -204,6 +208,8 @@ export const HospitalNavigator = () => {
       <Stack.Screen name="HospitalDonationDetail" component={HospitalDonationDetailScreen} />
       <Stack.Screen name="SavedCards" component={SavedCardsScreen} />
       <Stack.Screen name="BloodRequestDetail" component={BloodRequestDetailScreen} />
+      <Stack.Screen name="FulfilledRequests" component={FulfilledRequestsScreen} />
+      <Stack.Screen name="FulfilledRequestDetail" component={FulfilledRequestDetailScreen} />
       <Stack.Screen name="RecentActivities" component={RecentActivitiesScreen} />
       <Stack.Screen name="BloodRequestPicker" component={BloodRequestPickerScreen} />
       <Stack.Screen name="HospitalReviews" component={HospitalReviewsScreen} options={{ headerShown: false }} />

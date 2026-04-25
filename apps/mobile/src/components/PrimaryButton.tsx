@@ -14,50 +14,102 @@ interface PrimaryButtonProps {
   label: string;
   onPress: () => void;
   isLoading?: boolean;
+  loading?: boolean; // Alias for isLoading
   disabled?: boolean;
-  style?: ViewStyle;
+  style?: any; // Use any to allow style arrays
   labelStyle?: TextStyle;
   leftIcon?: React.ReactNode;
+  icon?: React.ReactNode; // Alias for leftIcon
+  variant?: 'primary' | 'outlined' | 'ghost' | 'error';
+  size?: 'small' | 'medium' | 'large';
+  textStyle?: TextStyle; // Alias for labelStyle
 }
 
 export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
   label,
   onPress,
   isLoading = false,
+  loading = false,
   disabled = false,
   style,
   labelStyle,
+  textStyle,
   leftIcon,
+  icon,
+  variant = 'primary',
+  size = 'medium',
 }) => {
   const { theme } = useAppTheme();
+  const actualIsLoading = isLoading || loading;
+  const actualLeftIcon = leftIcon || icon;
+  const actualLabelStyle = labelStyle || textStyle;
+
+  const getVariantStyles = () => {
+    switch (variant) {
+      case 'outlined':
+        return {
+          backgroundColor: 'transparent',
+          borderWidth: 1,
+          borderColor: theme.colors.primary,
+        };
+      case 'ghost':
+        return {
+          backgroundColor: 'transparent',
+        };
+      case 'error':
+        return {
+          backgroundColor: theme.colors.error,
+        };
+      default:
+        return {
+          backgroundColor: theme.colors.primary,
+        };
+    }
+  };
+
+  const getSizeStyles = () => {
+    switch (size) {
+      case 'small':
+        return { height: 40, paddingHorizontal: 12 };
+      case 'large':
+        return { height: 60, paddingHorizontal: 24 };
+      default:
+        return { height: 52, paddingHorizontal: 16 };
+    }
+  };
+
+  const getLabelColor = () => {
+    if (variant === 'outlined') return theme.colors.primary;
+    if (variant === 'ghost') return theme.colors.primary;
+    return theme.colors.white;
+  };
 
   return (
     <TouchableOpacity
       style={[
-        styles.button, 
-        { 
-          backgroundColor: theme.colors.primary,
-          borderRadius: 12, // theme.borderRadius.md
-        },
-        (disabled || isLoading) && styles.disabled,
+        styles.button,
+        { borderRadius: 12 },
+        getVariantStyles(),
+        getSizeStyles(),
+        (disabled || actualIsLoading) && styles.disabled,
         style
       ]}
       onPress={onPress}
-      disabled={disabled || isLoading}
+      disabled={disabled || actualIsLoading}
       activeOpacity={0.8}
     >
-      {isLoading ? (
-        <ActivityIndicator color={theme.colors.white} />
+      {actualIsLoading ? (
+        <ActivityIndicator color={getLabelColor()} />
       ) : (
         <View style={styles.content}>
-          {leftIcon && <View style={styles.iconContainer}>{leftIcon}</View>}
+          {actualLeftIcon && <View style={styles.iconContainer}>{actualLeftIcon}</View>}
           <Text style={[
             styles.label, 
             { 
-              color: theme.colors.white,
+              color: getLabelColor(),
               fontFamily: theme.typography.fontFamilyMedium 
             },
-            labelStyle
+            actualLabelStyle
           ]}>{label}</Text>
         </View>
       )}

@@ -11,6 +11,11 @@ export default function Consultations() {
   const [selectedConsultation, setSelectedConsultation] = useState<any>(null);
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  const [refundNote, setRefundNote] = useState('');
+  const [newStatus, setNewStatus] = useState('');
   const queryClient = useQueryClient();
 
   const { data: response, isLoading } = useQuery({
@@ -37,6 +42,7 @@ export default function Consultations() {
     },
     onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['admin-consultations'] });
+        setIsStatusModalOpen(false);
         toast.success('Status updated successfully');
     }
   });
@@ -48,7 +54,21 @@ export default function Consultations() {
     },
     onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['admin-consultations'] });
+        setIsPayoutModalOpen(false);
         toast.success('Payout approved and executed');
+    }
+  });
+
+  const refundMutation = useMutation({
+    mutationFn: async ({ id, note }: { id: string, note: string }) => {
+        const res = await api.post(`/admin/consultations/${id}/refund`, { note });
+        return res.data;
+    },
+    onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['admin-consultations'] });
+        setIsRefundModalOpen(false);
+        setRefundNote('');
+        toast.success('Consultation fully refunded to patient');
     }
   });
 
@@ -75,6 +95,10 @@ export default function Consultations() {
   const handleSelectOne = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
+
+  const isConsultationCompleted = selectedConsultation?.status === 'COMPLETED';
+  const isPayoutPaid = selectedConsultation?.payoutStatus === 'PAID';
+  const isRefunded = selectedConsultation?.payoutStatus === 'REFUNDED';
 
   return (
     <>
@@ -216,21 +240,140 @@ export default function Consultations() {
               {/* Admin Actions */}
               <div className="pt-6 border-t border-border flex flex-wrap gap-3">
                   <button 
-                    onClick={() => { if(window.confirm('Manually release funds to specialist?')) approvePayoutMutation.mutate(selectedConsultation.id); }}
-                    disabled={approvePayoutMutation.isPending}
-                    className="flex-1 px-4 py-3 bg-success-bg text-success-text text-xs font-black uppercase tracking-widest rounded-xl hover:opacity-90 transition-all border border-success-text/20 disabled:opacity-50"
+                    onClick={() => setIsPayoutModalOpen(true)}
+                    disabled={isPayoutPaid || isRefunded || approvePayoutMutation.isPending}
+                    className="flex-1 px-4 py-3 bg-success-bg text-success-text text-xs font-black uppercase tracking-widest rounded-xl hover:opacity-90 transition-all border border-success-text/20 disabled:opacity-30 disabled:cursor-not-allowed"
                   >
-                    Release Payout
+                    {isPayoutPaid ? 'Payout Released' : 'Release Payout'}
                   </button>
                   <button 
-                    onClick={() => { const s = window.prompt('Enter new status (COMPLETED, DISPUTED, CANCELLED, UPCOMING):'); if(s) updateStatusMutation.mutate({ id: selectedConsultation.id, status: s }); }}
-                    className="flex-1 px-4 py-3 bg-background text-textSecondary text-xs font-black uppercase tracking-widest rounded-xl border border-border hover:bg-surface transition-all"
+                    onClick={() => setIsRefundModalOpen(true)}
+                    disabled={isPayoutPaid || isRefunded || refundMutation.isPending}
+                    className="flex-1 px-4 py-3 bg-danger-bg text-danger-text text-xs font-black uppercase tracking-widest rounded-xl hover:opacity-90 transition-all border border-danger-text/20 disabled:opacity-30 disabled:cursor-not-allowed"
                   >
-                    Override Status
+                    {isRefunded ? 'Patient Refunded' : 'Refund Patient'}
+                  </button>
+                  <button 
+                    onClick={() => { setNewStatus(selectedConsultation.status); setIsStatusModalOpen(true); }}
+                    disabled={isConsultationCompleted}
+                    className="flex-1 px-4 py-3 bg-background text-textSecondary text-xs font-black uppercase tracking-widest rounded-xl border border-border hover:bg-surface transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    {isConsultationCompleted ? 'Consultation Finalized' : 'Override Status'}
                   </button>
               </div>
             </div>
           )}
+        </DetailModal>
+
+        {/* Payout Confirmation Modal */}
+        <DetailModal 
+            isOpen={isPayoutModalOpen} 
+            onClose={() => setIsPayoutModalOpen(false)} 
+            title="Confirm Manual Payout"
+        >
+            <div className="space-y-6">
+                <p className="text-textSecondary leading-relaxed">
+                    You are about to manually release <span className="font-bold text-textPrimary">₦{Number(selectedConsultation?.specialistPayout).toLocaleString()}</span> to the specialist. 
+                    This action is irreversible and should only be done after verifying the consultation was completed.
+                </p>
+                <div className="flex gap-4 pt-4">
+                    <button 
+                        onClick={() => setIsPayoutModalOpen(false)}
+                        className="flex-1 px-6 py-3 bg-background border border-border text-textSecondary font-bold rounded-xl hover:bg-surface transition-all"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={() => approvePayoutMutation.mutate(selectedConsultation.id)}
+                        disabled={approvePayoutMutation.isPending}
+                        className="flex-1 px-6 py-3 bg-success-bg text-success-text font-bold rounded-xl hover:brightness-95 transition-all flex items-center justify-center gap-2"
+                    >
+                        {approvePayoutMutation.isPending ? 'Processing...' : 'Confirm Release'}
+                    </button>
+                </div>
+            </div>
+        </DetailModal>
+
+        {/* Status Override Modal */}
+        <DetailModal 
+            isOpen={isStatusModalOpen} 
+            onClose={() => setIsStatusModalOpen(false)} 
+            title="Override Consultation Status"
+        >
+            <div className="space-y-6">
+                <div className="space-y-4">
+                    <label className="text-xs font-black text-textSecondary uppercase tracking-widest">Select New Status</label>
+                    <div className="grid grid-cols-2 gap-3">
+                        {['COMPLETED', 'DISPUTED', 'CANCELLED', 'UPCOMING'].map(status => (
+                            <button
+                                key={status}
+                                onClick={() => setNewStatus(status)}
+                                className={cn(
+                                    "px-4 py-3 rounded-xl border text-xs font-black transition-all",
+                                    newStatus === status ? "bg-primary/10 border-primary text-primary" : "bg-background border-border text-textSecondary hover:border-textSecondary"
+                                )}
+                            >
+                                {status}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                
+                <div className="flex gap-4 pt-4">
+                    <button 
+                        onClick={() => setIsStatusModalOpen(false)}
+                        className="flex-1 px-6 py-3 bg-background border border-border text-textSecondary font-bold rounded-xl hover:bg-surface transition-all"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={() => updateStatusMutation.mutate({ id: selectedConsultation.id, status: newStatus })}
+                        disabled={updateStatusMutation.isPending || !newStatus}
+                        className="flex-1 px-6 py-3 bg-primary text-white font-bold rounded-xl hover:brightness-95 transition-all disabled:opacity-50"
+                    >
+                        {updateStatusMutation.isPending ? 'Updating...' : 'Update Status'}
+                    </button>
+                </div>
+            </div>
+        </DetailModal>
+
+        {/* Refund Confirmation Modal */}
+        <DetailModal 
+            isOpen={isRefundModalOpen} 
+            onClose={() => setIsRefundModalOpen(false)} 
+            title="Confirm Patient Refund"
+        >
+            <div className="space-y-6">
+                <p className="text-textSecondary leading-relaxed">
+                    You are about to fully refund <span className="font-bold text-textPrimary">₦{Number(selectedConsultation?.totalFee).toLocaleString()}</span> to the patient's wallet. 
+                    This will mark the consultation as <span className="font-bold text-danger-text">DECLINED/CANCELLED</span>.
+                </p>
+                <div className="space-y-2">
+                    <label className="text-xs font-black text-textSecondary uppercase tracking-widest">Refund Note (Visible to Admin)</label>
+                    <textarea 
+                        className="w-full p-4 bg-background border border-border rounded-xl text-sm"
+                        placeholder="e.g. Specialist no-show verified..."
+                        value={refundNote}
+                        onChange={(e) => setRefundNote(e.target.value)}
+                        rows={3}
+                    />
+                </div>
+                <div className="flex gap-4 pt-4">
+                    <button 
+                        onClick={() => setIsRefundModalOpen(false)}
+                        className="flex-1 px-6 py-3 bg-background border border-border text-textSecondary font-bold rounded-xl hover:bg-surface transition-all"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={() => refundMutation.mutate({ id: selectedConsultation.id, note: refundNote })}
+                        disabled={refundMutation.isPending || !refundNote.trim()}
+                        className="flex-1 px-6 py-3 bg-danger-bg text-danger-text font-bold rounded-xl hover:brightness-95 transition-all flex items-center justify-center gap-2"
+                    >
+                        {refundMutation.isPending ? 'Processing...' : 'Confirm Full Refund'}
+                    </button>
+                </div>
+            </div>
         </DetailModal>
       </div>
 

@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput as RNTextInput, Modal, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { CaretLeft, VideoCamera, ChatCircleDots, Calendar as CalendarIcon, Clock, CheckCircle, XCircle, Star, X, MapPin, CalendarPlus, ChatTeardropDots } from 'phosphor-react-native';
+import { CaretLeft, VideoCamera, ChatCircleDots, Calendar as CalendarIcon, Clock, CheckCircle, XCircle, Star, X, MapPin, CalendarPlus, ChatTeardropDots, Microphone } from 'phosphor-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -15,6 +15,8 @@ import { format, isValid } from 'date-fns';
 import { safeFormat } from '../utils/dateUtils';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
+import Animated, { useAnimatedStyle, withRepeat, withTiming, withSequence } from 'react-native-reanimated';
 
 const OUTCOMES = ['Completed successfully', 'Patient no-show', 'Technical issues prevented completion', 'Patient ended session early'];
 const SERVICES = ['Diagnosis', 'Treatment recommendation', 'Prescription', 'Referral to another specialist', 'General advice / counselling'];
@@ -49,10 +51,46 @@ export const SpecialistAppointmentDetailsScreen = () => {
   const [providedServices, setServices] = useState<string[]>([]);
   const [followUp, setFollowUp] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Voice to Text logic
+  const [recognizing, setRecognizing] = useState(false);
+
+  useSpeechRecognitionEvent('start', () => setRecognizing(true));
+  useSpeechRecognitionEvent('stop', () => setRecognizing(false));
+  useSpeechRecognitionEvent('error', (event) => {
+    console.error('Speech recognition error:', event.error, event.message);
+    setRecognizing(false);
+  });
+  useSpeechRecognitionEvent('result', (event) => {
+    if (event.results[0]?.transcript) {
+        setNotes(prev => (prev ? `${prev} ${event.results[0].transcript}` : event.results[0].transcript));
+    }
+  });
+
+  const startListening = async () => {
+    const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!result.granted) {
+      Alert.alert('Permission Denied', 'Please allow microphone access to use voice-to-text.');
+      return;
+    }
+    ExpoSpeechRecognitionModule.start({ lang: 'en-US', interimResults: true });
+  };
+
+  const stopListening = () => {
+    ExpoSpeechRecognitionModule.stop();
+  };
+
+  const micPulseStyle = useAnimatedStyle(() => {
+    if (!recognizing) return { opacity: 1, scale: 1 };
+    return {
+        opacity: withRepeat(withSequence(withTiming(0.4, { duration: 500 }), withTiming(1, { duration: 500 })), -1, true),
+        transform: [{ scale: withRepeat(withSequence(withTiming(1.1, { duration: 500 }), withTiming(1, { duration: 500 })), -1, true) }]
+    };
+  });
   const [flag, setFlag] = useState('');
   const [prescriptionUrl, setPrescriptionUrl] = useState('');
   const [labRequestUrl, setLabRequestUrl] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
+  const [uploadingType, setUploadingType] = useState<'prescription' | 'lab' | null>(null);
 
   useEffect(() => {
       if (consultation) {
@@ -111,29 +149,46 @@ export const SpecialistAppointmentDetailsScreen = () => {
 
   const handleFileUpload = async (type: 'prescription' | 'lab') => {
     try {
-        const result = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true });
+        const result = await DocumentPicker.getDocumentAsync({ 
+            type: ['application/pdf', 'image/*'], 
+            copyToCacheDirectory: true 
+        });
+        
         if (!result.canceled && result.assets?.[0]) {
-            setIsUploading(true);
+            setUploadingType(type);
             const asset = result.assets[0];
+            
             const formData = new FormData();
+            
+            // Create the file object correctly for React Native Fetch/Axios
             const fileToUpload = {
                 uri: asset.uri,
                 name: asset.name || `file_${Date.now()}`,
                 type: asset.mimeType || 'application/octet-stream'
             };
+            
             // @ts-ignore
             formData.append('file', fileToUpload);
-            const uploadRes = await api.post('/users/upload', formData, { transformRequest: (data) => data });
+            
+            const uploadRes = await api.post('/users/upload', formData, { 
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+                transformRequest: (data) => data, // Essential for FormData in some axios configs
+            });
+
             if (uploadRes.data?.url) {
                 if (type === 'prescription') setPrescriptionUrl(uploadRes.data.url);
                 else setLabRequestUrl(uploadRes.data.url);
                 Alert.alert('Success', `${type === 'prescription' ? 'Prescription' : 'Lab Request'} uploaded.`);
             }
         }
-    } catch (error) {
-        Alert.alert('Upload Error', 'Failed to upload document');
+    } catch (error: any) {
+        console.error('Upload error:', error);
+        const msg = error.response?.data?.message || error.message || 'Failed to upload document';
+        Alert.alert('Upload Error', msg);
     } finally {
-        setIsUploading(false);
+        setUploadingType(null);
     }
   };
 
@@ -180,20 +235,59 @@ export const SpecialistAppointmentDetailsScreen = () => {
 
   if (isLoading) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator color={theme.colors.primary} /></View>;
 
+  const isHeld = consultation?.payoutStatus === 'HELD';
   const isCompleted = consultation?.status === 'COMPLETED';
-  const isPendingPayout = consultation?.status === 'PENDING_PAYOUT';
+  const isPaid = consultation?.payoutStatus === 'PAID';
+  const isFinalized = consultation?.status === 'PENDING_PAYOUT' || consultation?.status === 'ARCHIVED';
+  const isPendingPayout = isFinalized && !isPaid;
   const isUpcoming = consultation?.status === 'UPCOMING' || consultation?.status === 'CONFIRMED';
   const hasFeedback = !!consultation?.specialistFeedback;
 
   const displayPatientName = consultation?.patient?.fullName || consultation?.patient?.email?.split('@')[0] || 'Patient';
 
-  const handleStartConsultation = () => {
-    if (consultation?.meetingLink) {
-        Linking.openURL(consultation.meetingLink).catch(() => Alert.alert('Error', 'Could not open link.'));
-    } else {
-        Alert.alert('Missing Info', 'Please provide a meeting link before starting the consultation.');
+  const handleStartConsultation = async () => {
+    // Check if consultation is within 10 minutes
+    if (consultation?.scheduledAt) {
+        const now = new Date();
+        const startTime = new Date(consultation.scheduledAt);
+        const tenMinsBefore = new Date(startTime.getTime() - 10 * 60 * 1000);
+        
+        if (now < tenMinsBefore) {
+            Alert.alert('Too Early', 'You can start this consultation 10 minutes before the scheduled time.');
+            return;
+        }
+    }
+
+    try {
+        const response = await api.get(`/consultations/${consultation.id}/token`);
+        const { token, channelName, appId } = response.data;
+
+        navigation.navigate('AgoraCall', { 
+            channelName, 
+            consultationId: consultation.id,
+            token,
+            appId
+        });
+    } catch (error) {
+        console.error('Error fetching Agora token:', error);
+        Alert.alert('Connection Error', 'Could not secure a video connection. Please try again.');
     }
   };
+
+  // Status Badge Logic
+  let statusLabel = consultation?.status;
+  let statusVariant = 'info';
+
+  if (isHeld) {
+      statusLabel = 'Under Review';
+      statusVariant = 'error';
+  } else if (isPaid || isCompleted) {
+      statusLabel = 'Completed';
+      statusVariant = 'success';
+  } else if (isPendingPayout) {
+      statusLabel = 'Pending Payout';
+      statusVariant = 'warning';
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -207,7 +301,10 @@ export const SpecialistAppointmentDetailsScreen = () => {
           <Avatar name={displayPatientName} size={64} />
           <View style={{ flex: 1 }}>
             <Text style={styles.patientName}>{displayPatientName}</Text>
-            <Badge label={consultation?.status} variant={isCompleted ? 'success' : isPendingPayout ? 'warning' : 'info'} />
+            <Badge 
+                label={statusLabel} 
+                variant={statusVariant} 
+            />
           </View>
           <TouchableOpacity onPress={() => navigation.navigate('Chat', { roomId: consultation.id, otherUserName: displayPatientName })}>
             <ChatTeardropDots color={theme.colors.primary} size={32} weight="fill" />
@@ -231,7 +328,18 @@ export const SpecialistAppointmentDetailsScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Financials</Text>
           <View style={[styles.infoRow, { justifyContent: 'space-between' }]}><Text style={{ color: theme.colors.textSecondary }}>Your Payout (80%)</Text><Text style={{ fontFamily: theme.typography.fontFamilyBold, color: theme.colors.success }}>NGN {Number(consultation?.specialistPayout).toLocaleString()}</Text></View>
-          <View style={[styles.infoRow, { justifyContent: 'space-between' }]}><Text style={{ color: theme.colors.textSecondary }}>Payout Status</Text><Badge label={consultation?.payoutStatus} variant="flat" /></View>
+          <View style={[styles.infoRow, { justifyContent: 'space-between' }]}><Text style={{ color: theme.colors.textSecondary }}>Payout Status</Text><Badge label={consultation?.payoutStatus} variant={isHeld ? 'error' : 'flat'} /></View>
+          
+          {(isHeld || (isPendingPayout && !hasFeedback)) && (
+            <View style={{ marginTop: 12, padding: 12, backgroundColor: isHeld ? theme.colors.error + '10' : theme.colors.warning + '10', borderRadius: 8, borderWidth: 1, borderColor: isHeld ? theme.colors.error + '20' : theme.colors.warning + '20' }}>
+                <Text style={{ fontSize: 13, color: isHeld ? theme.colors.error : theme.colors.warning, fontFamily: theme.typography.fontFamilyBold, marginBottom: 4 }}>
+                    {isHeld ? 'Why is this withheld?' : 'Action Required'}
+                </Text>
+                <Text style={{ fontSize: 12, color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyMedium }}>
+                    {isHeld ? (consultation?.payoutNote || 'Waiting for patient feedback or admin review.') : 'Please submit your consultation feedback to release the payout.'}
+                </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -334,7 +442,32 @@ export const SpecialistAppointmentDetailsScreen = () => {
                       )}
 
                       <Text style={[styles.sectionTitle, { marginTop: 16 }]}>5. Consultation Notes (Private)</Text>
-                      <RNTextInput style={styles.feedbackInput} placeholder="Brief clinical observations..." multiline value={notes} onChangeText={setNotes} />
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                        <RNTextInput 
+                            style={[styles.feedbackInput, { flex: 1 }]} 
+                            placeholder="Brief clinical observations..." 
+                            multiline 
+                            value={notes} 
+                            onChangeText={setNotes} 
+                        />
+                        <Animated.View style={micPulseStyle}>
+                            <TouchableOpacity 
+                                onPressIn={startListening}
+                                onPressOut={stopListening}
+                                style={{ 
+                                    width: 44, 
+                                    height: 44, 
+                                    borderRadius: 22, 
+                                    backgroundColor: recognizing ? theme.colors.error : theme.colors.primary + '15',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    marginTop: 4
+                                }}
+                            >
+                                <Microphone color={recognizing ? 'white' : theme.colors.primary} size={22} weight={recognizing ? "fill" : "regular"} />
+                            </TouchableOpacity>
+                        </Animated.View>
+                      </View>
 
                       <Text style={[styles.sectionTitle, { marginTop: 24 }]}>6. Medical Records (Optional)</Text>
                       <View style={{ gap: 12, marginBottom: 20 }}>
@@ -345,7 +478,7 @@ export const SpecialistAppointmentDetailsScreen = () => {
                               <Text style={[styles.optionText, prescriptionUrl && styles.optionTextActive]}>
                                   {prescriptionUrl ? '✓ Prescription Attached' : 'Upload Prescription (PDF/Image)'}
                               </Text>
-                              {isUploading && <ActivityIndicator size="small" color={theme.colors.primary} />}
+                              {uploadingType === 'prescription' && <ActivityIndicator size="small" color={theme.colors.primary} />}
                           </TouchableOpacity>
 
                           <TouchableOpacity 
@@ -355,7 +488,7 @@ export const SpecialistAppointmentDetailsScreen = () => {
                               <Text style={[styles.optionText, labRequestUrl && styles.optionTextActive]}>
                                   {labRequestUrl ? '✓ Lab Request Attached' : 'Upload Lab Request (PDF/Image)'}
                               </Text>
-                              {isUploading && <ActivityIndicator size="small" color={theme.colors.primary} />}
+                              {uploadingType === 'lab' && <ActivityIndicator size="small" color={theme.colors.primary} />}
                           </TouchableOpacity>
                       </View>
 
@@ -364,7 +497,7 @@ export const SpecialistAppointmentDetailsScreen = () => {
                         style={{ marginTop: 24 }}
                         onPress={() => feedbackMutation.mutate({ outcome, providedServices, followUp, notes, flag, prescriptionUrl, labRequestUrl })}
                         isLoading={feedbackMutation.isPending}
-                        disabled={!outcome || !followUp || isUploading}
+                        disabled={!outcome || !followUp || uploadingType !== null}
                       />
                   </ScrollView>
               </View>

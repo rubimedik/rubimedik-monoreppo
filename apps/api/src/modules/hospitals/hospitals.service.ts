@@ -193,11 +193,17 @@ export class HospitalsService {
 
     this.logger.log(`DEBUG STATS RESULT: User=${userId} | Active=${activeRequests} | Urgent=${urgentRequestsNearby} | Upcoming=${upcomingDonations} | TotalUnits=${totalUnits}`);
 
+    // Get specific hospital reservation info
+    const profile = await this.hospitalProfileRepository.findOne({ where: { user: { id: userId } } });
+
     return {
       activeRequests,
       urgentRequestsNearby,
       upcomingDonations,
       totalUnits,
+      unitsReceived: profile?.unitsReceived || 0,
+      reservedUnits: profile?.reservedUnits || 0,
+      termsAccepted: profile?.termsAccepted || false,
     };
   }
 
@@ -221,6 +227,12 @@ export class HospitalsService {
   async rejectHospital(id: string): Promise<HospitalProfile> {
     const profile = await this.findOne(id);
     profile.isApproved = false;
+    return this.hospitalProfileRepository.save(profile);
+  }
+
+  async acceptTerms(userId: string): Promise<HospitalProfile> {
+    const profile = await this.findByUserId(userId);
+    profile.termsAccepted = true;
     return this.hospitalProfileRepository.save(profile);
   }
 }

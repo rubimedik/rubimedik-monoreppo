@@ -40,6 +40,18 @@ export class HospitalProfile {
   @Column({ default: false })
   isApproved: boolean;
 
+  @ApiProperty({ example: false })
+  @Column({ default: false })
+  termsAccepted: boolean;
+
+  @ApiProperty({ example: 0 })
+  @Column({ type: 'int', default: 0 })
+  unitsReceived: number;
+
+  @ApiProperty({ example: 0 })
+  @Column({ type: 'int', default: 0 })
+  reservedUnits: number;
+
   @ApiProperty({ type: () => User })
   @OneToOne(() => User, (user) => user.hospitalProfile)
   @JoinColumn()

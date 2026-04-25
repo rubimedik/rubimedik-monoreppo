@@ -261,6 +261,15 @@ export class AdminController {
     return this.adminService.approvePayout(id);
   }
 
+  @Post('consultations/:id/refund')
+  @ApiOperation({ summary: 'Manually refund a consultation to the patient' })
+  async refundConsultation(
+    @Param('id') id: string,
+    @Body('note') note: string,
+  ) {
+    return this.adminService.refundConsultation(id, note);
+  }
+
   @Post('users/:id/verification')
   @ApiOperation({ summary: 'Update user email verification status' })
   async updateUserVerification(

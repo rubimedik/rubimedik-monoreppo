@@ -386,7 +386,11 @@ export class AiService {
       try {
           const prompt = `Analyze this consultation metadata: ${JSON.stringify(consultationData)}.
           Check for "Ghost Consultation" patterns where a specialist marks it complete without actually providing service.
-          Flag if: duration is < 3 mins, OR no messages/video logs exist, AND patient submitted no feedback.
+          Rules:
+          - If isEarlyCompletion is true, DO NOT flag simply because hasPatientFeedback is false (it's too early).
+          - Flag if duration is < 3 mins AND zero messages exist.
+          - Flag if duration is < 1 min regardless of messages.
+          - Return isGhost: false if there are more than 5 messages regardless of duration.
           Return ONLY a valid JSON object:
           {
              "isGhost": boolean,

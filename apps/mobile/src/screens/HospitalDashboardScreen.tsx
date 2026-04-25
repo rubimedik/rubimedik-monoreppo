@@ -10,15 +10,17 @@ import {
   RefreshControl,
   Modal,
   Platform,
-  Pressable
+  Pressable,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { Avatar } from '../components/Avatar';
-import { Plus, Drop, UsersThree, FileText, CaretRight as CaretRightIcon, Bell, FirstAidKit, Warning, Calendar as CalendarIcon, CheckCircle, WarningCircle, PenNib, BookOpen, X, User as UserIcon, SealCheck, Sparkle } from 'phosphor-react-native';
-import { useQuery } from '@tanstack/react-query';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { Plus, Drop, UsersThree, FileText, CaretRight, Bell, FirstAidKit, Warning, Calendar as CalendarIcon, CheckCircle, WarningCircle, PenNib, BookOpen, X, User as UserIcon, SealCheck, Sparkle, ChatTeardropDots } from 'phosphor-react-native';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { useNavigation } from '@react-navigation/native';
@@ -27,14 +29,15 @@ import { Swipeable, Pressable as GHPressable } from 'react-native-gesture-handle
 
 const DATE_FILTERS = ['This week', 'This month', 'This year', 'All time'];
 
-export const HospitalDashboardScreen = () => {
+export const HospitalDashboardScreen = ({ navigation }: { navigation: any }) => {
   const { theme, isDarkMode } = useAppTheme();
   const { user } = useAuthStore();
-  const navigation = useNavigation<any>();
+  const queryClient = useQueryClient();
   
   const [dateFilter, setDateFilter] = useState('This week');
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isAiAlertCollapsed, setIsAiAlertCollapsed] = useState(false);
 
   const { data: profile, refetch: refetchProfile } = useQuery({
     queryKey: ['hospital-profile', user?.id],
@@ -63,6 +66,9 @@ export const HospitalDashboardScreen = () => {
         );
         const receivedUnits = completedMatches.reduce((sum: number, m: any) => sum + (m.units || m.request?.units || 1), 0);
         statsData.donationsReceived = receivedUnits;
+        
+        // Also calculate reservedUnits manually: floor(total/5) * 2
+        statsData.reservedUnits = Math.floor(receivedUnits / 5) * 2;
       }
       
       return statsData;
@@ -90,6 +96,17 @@ export const HospitalDashboardScreen = () => {
     enabled: !!profile?.isApproved,
   });
 
+  const { data: pendingReviews } = useQuery({
+    queryKey: ['hospital-pending-reviews'],
+    queryFn: async () => {
+        const res = await api.get('/donations/pending-reviews?role=HOSPITAL');
+        return res.data;
+    },
+    enabled: !!profile?.isApproved,
+  });
+
+  const hasPendingReview = pendingReviews && pendingReviews.length > 0;
+
   const { data: notifications } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => api.get('/notifications').then(res => res.data),
@@ -99,6 +116,18 @@ export const HospitalDashboardScreen = () => {
   const unreadCount = useMemo(() => {
     return notifications?.filter((n: any) => !n.isRead).length || 0;
   }, [notifications]);
+
+  const unitsReceived = stats?.unitsReceived || 0;
+  const reservedUnits = stats?.reservedUnits || 0;
+  const termsAccepted = stats?.termsAccepted || false;
+
+  const acceptTermsMutation = useMutation({
+    mutationFn: () => api.put('/hospitals/accept-terms'),
+    onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['hospital-stats'] });
+        Alert.alert('Success', 'Terms accepted successfully.');
+    }
+  });
 
   const onRefresh = async () => {
     setIsRefreshing(true);
@@ -326,6 +355,9 @@ export const HospitalDashboardScreen = () => {
     activeFilterOption: {
       color: theme.colors.primary,
       fontFamily: theme.typography.fontFamilyBold,
+    },
+    section: {
+      marginTop: 8,
     }
   }), [theme, isDarkMode]);
 
@@ -377,6 +409,54 @@ export const HospitalDashboardScreen = () => {
           </GHPressable>
         </View>
 
+        {(!termsAccepted && profile?.isApproved) && (
+          <Card 
+            style={{ marginBottom: 24, backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary }} 
+            variant="outlined"
+          >
+            <View style={{ padding: 4 }}>
+              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+                <FileText size={24} color={theme.colors.primary} weight="fill" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyBold, fontSize: 14 }}>Terms & Agreement</Text>
+                  <Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 }}>You must agree to the blood reservation policy (4 per 10 units) to receive blood.</Text>
+                </View>
+              </View>
+              <PrimaryButton 
+                label="Accept Terms" 
+                size="small" 
+                onPress={() => {
+                    Alert.alert(
+                        'Terms of Service',
+                        'By accepting, you agree that for every 10 units of blood received through RubiMedik, 4 units shall be reserved for RubiMedik and managed as platform inventory.',
+                        [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'I Agree', onPress: () => acceptTermsMutation.mutate() }
+                        ]
+                    );
+                }}
+                isLoading={acceptTermsMutation.isPending}
+              />
+            </View>
+          </Card>
+        )}
+
+        {hasPendingReview && (
+          <Card
+            style={{ marginBottom: 24, backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary }}
+            variant="outlined"
+            onPress={() => navigation.navigate('HospitalDonationMatches', { initialTab: 'COMPLETED' })}
+            >
+            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 4 }}>              <ChatTeardropDots size={24} color={theme.colors.primary} weight="fill" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyBold, fontSize: 14 }}>Feedback Required</Text>
+                <Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 }}>You have {pendingReviews.length} pending donor review{pendingReviews.length > 1 ? 's' : ''}. Please complete them to maintain quality.</Text>
+              </View>
+              <CaretRight size={20} color={theme.colors.textSecondary} />
+            </View>
+          </Card>
+        )}
+
         {!profile?.isApproved && (
           <Card 
             style={{ marginBottom: 24, backgroundColor: theme.colors.warning + '15', borderColor: theme.colors.warning }} 
@@ -389,7 +469,7 @@ export const HospitalDashboardScreen = () => {
                 <Text style={{ color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyBold, fontSize: 14 }}>Verification Pending</Text>
                 <Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 }}>Unlock all features by completing your profile.</Text>
               </View>
-              <CaretRightIcon size={20} color={theme.colors.textSecondary} />
+              <CaretRight size={20} color={theme.colors.textSecondary} />
             </View>
           </Card>
         )}
@@ -428,7 +508,7 @@ export const HospitalDashboardScreen = () => {
                   onPress={() => setIsFilterModalVisible(true)}
                 >
                   <Text style={styles.filterText}>{dateFilter}</Text>
-                  <CaretRightIcon size={10} color="white" style={{ transform: [{ rotate: '90deg' }] }} />
+                  <CaretRight size={10} color="white" style={{ transform: [{ rotate: '90deg' }] }} />
                 </TouchableOpacity>
               </View>
               <View>
@@ -436,16 +516,38 @@ export const HospitalDashboardScreen = () => {
                 <Text style={styles.statLabel}>Donations Received</Text>
               </View>
             </View>
+
+            <View style={[styles.statCard, { backgroundColor: '#6366f1' }]}>
+              <View style={styles.statIconContainer}>
+                <Sparkle color="white" size={20} weight="fill" />
+              </View>
+              <View>
+                <Text style={styles.statValue}>{stats?.reservedUnits || 0}</Text>
+                <Text style={styles.statLabel}>Platform Reserve</Text>
+              </View>
+            </View>
           </View>
         </View>
 
         {/* AI Inventory Prediction */}
         {prediction && prediction.daysRemaining < 7 && (
-            <Card style={{ marginBottom: 24, backgroundColor: isDarkMode ? '#3E2723' : '#FFF3E0', borderColor: isDarkMode ? '#4E342E' : '#FFE0B2', padding: 16 }} variant="outlined">
-                <View style={{ flexDirection: 'row', gap: 12 }}>
-                    <Sparkle size={24} color="#EF6C00" weight="fill" style={{ marginTop: 2 }} />
+            <Card style={{ marginBottom: 24, backgroundColor: isDarkMode ? '#3E2723' : '#FFF3E0', borderColor: isDarkMode ? '#4E342E' : '#FFE0B2', padding: 0 }} variant="outlined">
+                <TouchableOpacity 
+                    style={{ flexDirection: 'row', gap: 12, padding: 16, alignItems: 'center' }}
+                    onPress={() => setIsAiAlertCollapsed(!isAiAlertCollapsed)}
+                >
+                    <Sparkle size={24} color="#EF6C00" weight="fill" />
                     <View style={{ flex: 1 }}>
-                        <Text style={{ color: '#E65100', fontFamily: theme.typography.fontFamilyBold, fontSize: 14, marginBottom: 6 }}>AI Inventory Alert</Text>
+                        <Text style={{ color: '#E65100', fontFamily: theme.typography.fontFamilyBold, fontSize: 14 }}>AI Inventory Alert</Text>
+                        {!isAiAlertCollapsed && (
+                            <Text style={{ color: isDarkMode ? 'white' : '#4E342E', fontSize: 12, marginTop: 4, fontFamily: theme.typography.fontFamily }}>Click to expand details</Text>
+                        )}
+                    </View>
+                    <CaretRight size={20} color="#EF6C00" style={{ transform: [{ rotate: isAiAlertCollapsed ? '90deg' : '0deg' }] }} />
+                </TouchableOpacity>
+
+                {isAiAlertCollapsed && (
+                    <View style={{ padding: 16, paddingTop: 0 }}>
                         <Text style={{ color: isDarkMode ? 'white' : '#4E342E', fontSize: 13, lineHeight: 20, fontFamily: theme.typography.fontFamily }}>{prediction.alertMessage}</Text>
                         <TouchableOpacity 
                             style={{ marginTop: 16, alignSelf: 'flex-start', backgroundColor: '#EF6C00', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 }}
@@ -454,20 +556,29 @@ export const HospitalDashboardScreen = () => {
                             <Text style={{ color: 'white', fontSize: 13, fontFamily: theme.typography.fontFamilyBold }}>Send Urgent Request</Text>
                         </TouchableOpacity>
                     </View>
-                </View>
+                )}
             </Card>
         )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-            <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('BloodRequestForm')}>
+            <TouchableOpacity 
+                style={[styles.quickAction, hasPendingReview && pendingReviews.length >= 3 && { opacity: 0.5 }]} 
+                onPress={() => {
+                    if (hasPendingReview && pendingReviews.length >= 3) {
+                        Alert.alert('Action Required', 'Please complete your pending donor reviews before submitting new blood requests.');
+                    } else {
+                        navigation.navigate('BloodRequestForm');
+                    }
+                }}
+            >
               <Plus size={24} color={theme.colors.primary} weight="bold" />
               <Text style={styles.quickActionText}>Request</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('DonorList')}>
-              <UsersThree size={24} color={theme.colors.success} weight="bold" />
-              <Text style={styles.quickActionText}>Donors</Text>
+            <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('FulfilledRequests')}>
+              <CheckCircle size={24} color={theme.colors.success} weight="bold" />
+              <Text style={styles.quickActionText}>Fulfilled</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('Inventory')}>
               <Drop size={24} color={theme.colors.error} weight="bold" />
@@ -504,7 +615,7 @@ export const HospitalDashboardScreen = () => {
                     <Text style={styles.activityTitle}>{activity.title}</Text>
                     <Text style={styles.activityTime}>{new Date(activity.createdAt || activity.date).toLocaleString()}</Text>
                   </View>
-                  <CaretRightIcon size={16} color={theme.colors.textSecondary} />
+                  <CaretRight size={16} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
               );
             })

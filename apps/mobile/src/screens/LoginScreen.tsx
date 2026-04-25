@@ -23,6 +23,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { UserRole } from '@repo/shared';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { notificationService } from '../services/notificationService';
+import Constants, { AppOwnership } from 'expo-constants';
 import { 
   GoogleSignin, 
   statusCodes 
@@ -59,6 +60,14 @@ export const LoginScreen = () => {
   };
 
   const handleGoogleLogin = async () => {
+    if (Constants.appOwnership === AppOwnership.Expo) {
+      Alert.alert(
+        'Not Supported',
+        'Google Sign-in is not supported in Expo Go. Please use a development build.'
+      );
+      return;
+    }
+
     try {
       console.log('--- Google Login Debug ---');
       console.log('Web Client ID:', process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB);
@@ -102,6 +111,16 @@ export const LoginScreen = () => {
     setIsLoading(true);
     try {
       const response = await api.post('/auth/login', { email: email.trim(), password });
+      
+      if (response.data.twoFactorRequired) {
+        navigation.navigate('TwoFactorVerify', { 
+            userId: response.data.userId,
+            email: response.data.email,
+            tempToken: response.data.tempToken
+        });
+        return;
+      }
+
       const { user, access_token, refresh_token } = response.data;
       setAuth(user, access_token, refresh_token);
       notificationService.registerForPushNotificationsAsync();

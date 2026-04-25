@@ -261,6 +261,18 @@ export default function Users() {
                               <p className="text-sm font-bold text-textPrimary">{selectedUser.hospitalProfile.licenseNumber}</p>
                           </div>
                       </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 p-4 bg-surface rounded-2xl border border-border">
+                          <div className="space-y-1">
+                              <p className="text-[10px] font-black text-textSecondary uppercase tracking-tighter">Units Received</p>
+                              <p className="text-lg font-black text-primary">{selectedUser.hospitalProfile.unitsReceived || 0}</p>
+                          </div>
+                          <div className="space-y-1">
+                              <p className="text-[10px] font-black text-textSecondary uppercase tracking-tighter">Platform Reserve (40%)</p>
+                              <p className="text-lg font-black text-indigo-600">{selectedUser.hospitalProfile.reservedUnits || 0}</p>
+                          </div>
+                      </div>
+
                       <div className="space-y-2">
                           <p className="text-[10px] font-black text-textSecondary uppercase tracking-tighter">Registration Documents</p>
                           <a 

@@ -19,6 +19,9 @@
       "supportsTablet": true,
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
+        "NSFaceIDUsageDescription": "Allow RubiMedik to use Face ID for secure login",
+        "NSCameraUsageDescription": "Allow RubiMedik to use your camera for video consultations",
+        "NSMicrophoneUsageDescription": "Allow RubiMedik to use your microphone for voice messages",
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
@@ -30,6 +33,11 @@
     },
     "android": {
       "package": "com.rubimedik.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -42,15 +50,35 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow RubiMedik to use your camera for video consultations",
+          "microphonePermission": "Allow RubiMedik to use your microphone for voice consultations"
+        }
+      ],
       "@react-native-community/datetimepicker",
       "expo-web-browser",
       "expo-dev-client",
       "@react-native-google-signin/google-signin",
-        [
+      [
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.jpg",
           "color": "#D32F2F"
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow RubiMedik to use your microphone for voice messages",
+          "speechRecognitionPermission": "Allow RubiMedik to recognize your speech"
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow RubiMedik to use Face ID for secure login"
         }
       ]
     ],
@@ -59,18 +87,17 @@
         "projectId": "2aae4331-72b5-43d5-811e-036af7a51d7c"
       }
     },
-    
-  "build": {
-    "preview": {
-      "android": {
-        "buildType": "apk"
-      }
-    },
-    "production": {
-      "android": {
-        "buildType": "app-bundle"
+    "build": {
+      "preview": {
+        "android": {
+          "buildType": "apk"
+        }
+      },
+      "production": {
+        "android": {
+          "buildType": "app-bundle"
+        }
       }
     }
-  }
   }
 }

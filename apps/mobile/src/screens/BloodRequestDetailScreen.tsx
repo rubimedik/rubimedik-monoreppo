@@ -371,7 +371,7 @@ export const BloodRequestDetailScreen = () => {
                         leftIcon={<ChatTeardropDots color="white" weight="fill" size={20} />}
                     />
                 )}
-                {(request?.units - request?.unitsFulfilled) > 0 && (
+                {(myReview && (request?.units - request?.unitsFulfilled) > 0) && (
                     <PrimaryButton 
                         label="Schedule Another Visit" 
                         onPress={() => navigation.navigate('BookDonation', { requestId: request.id })} 

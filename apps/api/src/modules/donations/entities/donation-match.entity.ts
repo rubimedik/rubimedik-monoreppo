@@ -65,6 +65,14 @@ export class DonationMatch {
   @Column({ nullable: true })
   declineReason?: string;
 
+  @ApiProperty({ example: 'RM-123456', required: false })
+  @Column({ nullable: true })
+  checkInToken?: string;
+
+  @ApiProperty({ example: 'DONOR-8821', required: false })
+  @Column({ nullable: true })
+  anonymousId?: string;
+
   @Column({ default: false })
   isDonorCheckedIn: boolean;
 

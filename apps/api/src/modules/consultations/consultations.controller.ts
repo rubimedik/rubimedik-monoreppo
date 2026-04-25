@@ -37,6 +37,13 @@ export class ConsultationsController {
       return this.consultationsService.findByPatientId(req.user.userId);
   }
 
+  @Get(':id/token')
+  @ApiOperation({ summary: 'Get Agora video token for a consultation' })
+  @ApiResponse({ status: 200, description: 'Agora token and configuration' })
+  async getToken(@Param('id') id: string, @Request() req) {
+    return this.consultationsService.getAgoraToken(id, req.user.userId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get consultation details by ID' })
   @ApiResponse({ status: 200, description: 'Full consultation record' })
@@ -140,6 +147,13 @@ export class ConsultationsController {
   @ApiResponse({ status: 200, description: 'Appointment confirmed' })
   async confirm(@Param('id') id: string, @Request() req) {
     return this.consultationsService.confirmConsultation(id, req.user.userId);
+  }
+
+  @Put(':id/decline')
+  @ApiOperation({ summary: 'Specialist declines an appointment request (Instantly refunds patient)' })
+  @ApiResponse({ status: 200, description: 'Appointment declined and patient refunded' })
+  async decline(@Param('id') id: string, @Request() req) {
+    return this.consultationsService.declineConsultation(id, req.user.userId);
   }
 
   @Put(':id/reschedule')

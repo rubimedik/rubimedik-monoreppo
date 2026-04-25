@@ -197,4 +197,9 @@ export const donationService = {
       throw error;
     }
   },
+
+  submitDonorFeedback: async (data: { matchId: string; rating: number; comment: string }) => {
+    const response = await api.post('/donations/feedback/donor', data);
+    return response.data;
+  },
 };

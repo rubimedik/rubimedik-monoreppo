@@ -13,14 +13,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { api } from '../services/api';
 import { SearchInput, Card, Badge, Skeleton, Avatar, PrimaryButton, BackButton } from '../components';
 import { Funnel, Star, CaretLeft, Sparkle, Info, X, MagnifyingGlass } from 'phosphor-react-native';
 
 const categories = ['All', 'General', 'Cardiology', 'Dentistry', 'Optometry', 'Pediatrics'];
 
-export const SearchSpecialistsScreen = () => {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+export const SearchSpecialistsScreen = ({ navigation, route }: { navigation: any, route: any }) => {
   const { theme, isDarkMode } = useAppTheme();
   const [search, setSearch] = useState(route.params?.query || '');
   const [selectedCategory, setSelectedCategory] = useState('All');

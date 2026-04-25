@@ -16,6 +16,7 @@ import { TopUpScreen } from '../screens/TopUpScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { PersonalInformationScreen } from '../screens/PersonalInformationScreen';
 import { SecurityScreen } from '../screens/SecurityScreen';
+import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen';
 import { ReferralsScreen } from '../screens/ReferralsScreen';
 import { PaymentScreen } from '../screens/PaymentScreen';
@@ -29,6 +30,7 @@ import { ActivityDetailScreen } from '../screens/ActivityDetailScreen';
 import { TransactionsHistoryScreen } from '../screens/TransactionsHistoryScreen';
 import { TransactionDetailScreen } from '../screens/TransactionDetailScreen';
 import { ConsultationDetailScreen } from '../screens/ConsultationDetailScreen';
+import AgoraCallScreen from '../screens/AgoraCallScreen';
 import { AiAssistantScreen } from '../screens/AiAssistantScreen';
 import { SymptomCheckerScreen } from '../screens/SymptomCheckerScreen';
 import { PaymentOTPScreen } from '../screens/PaymentOTPScreen';
@@ -53,6 +55,7 @@ import {
 
 export type PatientStackParamList = {
   MainTabs: undefined;
+  SearchSpecialists: undefined;
   SpecialistProfile: { specialistId: string };
   Booking: { specialistId: string; selectedPackage?: any };
   Payment: { amount: number; consultationId: string };
@@ -62,6 +65,7 @@ export type PatientStackParamList = {
   Notifications: undefined;
   PersonalInformation: undefined;
   Security: undefined;
+  ChangePassword: undefined;
   NotificationSettings: undefined;
   Referrals: undefined;
   Wallet: undefined;
@@ -73,6 +77,7 @@ export type PatientStackParamList = {
   TransactionHistory: undefined;
   TransactionDetail: { transaction: any };
   ConsultationDetail: { consultationId: string; action?: 'cancel' | 'reschedule' };
+  AgoraCall: { channelName: string; token?: string; consultationId: string };
   AiAssistant: undefined;
   SymptomChecker: undefined;
   Transfer: undefined;
@@ -222,6 +227,7 @@ export const PatientNavigator = () => {
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="PersonalInformation" component={PersonalInformationScreen} />
       <Stack.Screen name="Security" component={SecurityScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <Stack.Screen name="Referrals" component={ReferralsScreen} />
       <Stack.Screen name="TopUp" component={TopUpScreen} />
@@ -232,6 +238,7 @@ export const PatientNavigator = () => {
       <Stack.Screen name="TransactionHistory" component={TransactionsHistoryScreen} />
       <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
       <Stack.Screen name="ConsultationDetail" component={ConsultationDetailScreen} />
+      <Stack.Screen name="AgoraCall" component={AgoraCallScreen} />
       <Stack.Screen name="AiAssistant" component={AiAssistantScreen} />
       <Stack.Screen name="SymptomChecker" component={SymptomCheckerScreen} />
       <Stack.Screen name="Transfer" component={TransferScreen} />

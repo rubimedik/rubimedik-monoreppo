@@ -77,6 +77,12 @@ export class User {
   @Column({ nullable: true })
   googleId?: string;
 
+  @Column({ default: false })
+  isTwoFactorEnabled: boolean;
+
+  @Column({ nullable: true, select: false })
+  twoFactorSecret?: string;
+
   @ApiProperty({ example: 'REF123' })
   @Column({ unique: true })
   referralCode: string;
@@ -111,8 +117,27 @@ export class User {
   @Column({ type: 'float', default: 70 })
   trustScore: number; // Patients start at 70, Specialists start at 60
 
+  @ApiProperty({ example: 5 })
+  @Column({ default: 5 })
+  donationGoal: number;
+
   @Column('jsonb', { nullable: true })
   donorInsights: any; // { burnoutWarning, rarityMessage, lastImpactSummary }
+
+  @Column({ default: true })
+  pushAppointments: boolean;
+
+  @Column({ default: true })
+  pushChat: boolean;
+
+  @Column({ default: false })
+  pushPromotions: boolean;
+
+  @Column({ default: true })
+  emailReports: boolean;
+
+  @Column({ default: true })
+  emailSecurity: boolean;
 
   @ApiProperty()
   @CreateDateColumn()

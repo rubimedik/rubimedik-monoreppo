@@ -9,7 +9,7 @@ import { HospitalsService } from '../hospitals/hospitals.service';
 import { ConsultationsService } from '../consultations/consultations.service';
 import { DonationsService } from '../donations/donations.service';
 import { WalletService } from '../wallet/wallet.service';
-import { TransactionType, UserRole, DonationStatus } from '@repo/shared';
+import { TransactionType, UserRole, DonationStatus, ConsultationStatus, PayoutStatus } from '@repo/shared';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 
@@ -46,7 +46,9 @@ export class AdminService {
     const totalDonors = users.filter(u => u.roles.includes(UserRole.DONOR)).length;
     const totalPatients = users.filter(u => u.roles.includes(UserRole.PATIENT)).length;
 
-    const revenue = consultations.reduce((acc, curr) => acc + Number(curr.platformFee), 0);
+    const revenue = consultations
+      .filter(c => c.payoutStatus === PayoutStatus.PAID)
+      .reduce((acc, curr) => acc + Number(curr.platformFee), 0);
 
     const pendingRequests = requests.filter(r => r.status === DonationStatus.PENDING).length;
     const completedDonations = matches.filter(m => m.status === DonationStatus.VERIFIED || m.status === DonationStatus.COMPLETED).length;
@@ -277,9 +279,16 @@ export class AdminService {
     return this.consultationsService.executePayoutLogicForScheduler(id);
   }
 
+  async refundConsultation(id: string, adminNote: string) {
+    return this.consultationsService.adminRefundConsultation(id, adminNote);
+  }
+
   async getEarnings(period: 'today' | '7days' | '1month' | 'all') {
     const query = this.dataSource.getRepository('consultations').createQueryBuilder('consultation')
-      .where('consultation.status = :status', { status: 'COMPLETED' });
+      .where('consultation.status IN (:...statuses)', { 
+          statuses: [ConsultationStatus.COMPLETED, ConsultationStatus.ARCHIVED] 
+      })
+      .andWhere('consultation.payoutStatus = :payoutStatus', { payoutStatus: PayoutStatus.PAID });
 
     const now = new Date();
     if (period === 'today') {

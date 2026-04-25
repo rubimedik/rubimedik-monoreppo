@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, Not, Between } from 'typeorm';
+import { Repository, LessThan, Not, Between, In } from 'typeorm';
 import { Consultation } from './entities/consultation.entity';
 import { ConsultationStatus, PayoutStatus } from '@repo/shared';
 import { ConsultationsService } from './consultations.service';
@@ -106,7 +106,7 @@ export class ConsultationsScheduler {
     const toArchive = await this.consultationsRepository.find({
       where: {
         // @ts-ignore
-        status: Not(ConsultationStatus.ARCHIVED),
+        status: Not(In([ConsultationStatus.ARCHIVED, ConsultationStatus.COMPLETED, ConsultationStatus.CANCELLED])),
         chatClosesAt: LessThan(now),
       }
     });
@@ -126,6 +126,7 @@ export class ConsultationsScheduler {
     }
 
     // 4. Release Automated Payouts
+    // Case A: Standard payouts where patient feedback is present
     const query = this.consultationsRepository.createQueryBuilder('consultation')
         .leftJoinAndSelect('consultation.specialist', 'specialist')
         .leftJoinAndSelect('consultation.patient', 'patient')
@@ -143,6 +144,26 @@ export class ConsultationsScheduler {
       } catch (err) {
           this.logger.error(`Automated payout failed for ${consultation.id}: ${err.message}`);
       }
+    }
+
+    // Case B: Consultations where payout time has passed but patient HAS NOT submitted feedback
+    // These should be moved to HELD status so they don't disappear from the specialist's view without explanation
+    const overdueNoFeedback = await this.consultationsRepository.createQueryBuilder('consultation')
+        .where('consultation.payoutStatus = :payoutStatus', { payoutStatus: PayoutStatus.PENDING })
+        .andWhere('consultation.payoutReleasesAt <= :now', { now })
+        .andWhere("consultation.patientFeedback IS NULL")
+        .getMany();
+
+    for (const consultation of overdueNoFeedback) {
+        try {
+            this.logger.log(`Consultation ${consultation.id} overdue with no patient feedback. Moving to HELD.`);
+            consultation.payoutStatus = PayoutStatus.HELD;
+            consultation.payoutNote = 'Payout held: Waiting for patient feedback or admin review after grace period.';
+            // Keep it in PENDING_PAYOUT or ARCHIVED so it's visible
+            await this.consultationsRepository.save(consultation);
+        } catch (err) {
+            this.logger.error(`Failed to handle overdue consultation ${consultation.id}: ${err.message}`);
+        }
     }
   }
 }

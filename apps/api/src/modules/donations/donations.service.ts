@@ -6,6 +6,8 @@ import { Repository, DataSource, In } from 'typeorm';
 import { BloodRequest } from './entities/blood-request.entity';
 import { DonationMatch } from './entities/donation-match.entity';
 import { HospitalFeedback } from './entities/hospital-feedback.entity';
+import { DonorFeedback } from './entities/donor-feedback.entity';
+import { HospitalProfile } from '../hospitals/entities/hospital-profile.entity';
 import { DonationStatus, DonationType, UserRole } from '@repo/shared';
 import { ActivitiesService } from '../activities/activities.service';
 import { User } from '../users/entities/user.entity';
@@ -23,6 +25,8 @@ export class DonationsService {
     private donationMatchesRepository: Repository<DonationMatch>,
     @InjectRepository(HospitalFeedback)
     private feedbackRepository: Repository<HospitalFeedback>,
+    @InjectRepository(DonorFeedback)
+    private donorFeedbackRepository: Repository<DonorFeedback>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
     private dataSource: DataSource,
@@ -396,6 +400,12 @@ async getDonorStats(donorId: string) {
     }
 
     
+    if (scheduledDate) {
+      if (new Date(scheduledDate) < new Date()) {
+        throw new BadRequestException('Cannot book a donation in the past');
+      }
+    }
+
     const existingMatch = await this.donationMatchesRepository.findOne({
       where: { 
         request: { id: requestId },
@@ -408,12 +418,20 @@ async getDonorStats(donorId: string) {
       throw new BadRequestException('You already have an active booking for this request');
     }
 
+    const checkInToken = `RM-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    let anonymousId = null;
+    if (isAnonymous) {
+        anonymousId = `DONOR-${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+
     const match = this.donationMatchesRepository.create({
       request,
       donor: { id: donorId } as any,
       status: DonationStatus.PENDING,
       scheduledDate,
       isAnonymous: !!isAnonymous,
+      checkInToken,
+      anonymousId,
       donationType: request.donationType || DonationType.WHOLE_BLOOD,
     });
 
@@ -504,6 +522,10 @@ async getDonorStats(donorId: string) {
   }
 
   async rescheduleDonation(donorId: string, matchId: string, newDate: Date): Promise<DonationMatch> {
+    if (new Date(newDate) < new Date()) {
+      throw new BadRequestException('Cannot reschedule to a past time');
+    }
+
     const match = await this.donationMatchesRepository.findOne({
       where: { id: matchId, donor: { id: donorId } },
       relations: ['request', 'request.hospital']
@@ -601,6 +623,17 @@ async getDonorStats(donorId: string) {
     if (!match) throw new NotFoundException('Donation match not found');
     if (match.request.hospital.id !== hospitalId) throw new BadRequestException('Unauthorized');
 
+    // Prevent early completion (e.g., more than 30 minutes before schedule)
+    if (match.scheduledDate) {
+        const now = new Date();
+        const scheduledTime = new Date(match.scheduledDate);
+        const earlyThreshold = new Date(scheduledTime.getTime() - 30 * 60 * 1000); // 30 mins before
+
+        if (now < earlyThreshold) {
+            throw new BadRequestException(`Too early to complete. You can mark this as completed from ${earlyThreshold.toLocaleTimeString()}.`);
+        }
+    }
+
     match.status = DonationStatus.COMPLETED;
     match.donatedAt = new Date();
 
@@ -616,6 +649,25 @@ async getDonorStats(donorId: string) {
             request.status = DonationStatus.COMPLETED;
         }
         await this.bloodRequestsRepository.save(request);
+
+        // Update Hospital reserved units logic
+        // Rule: For every 10 units received, 4 are reserved for RubiMedik
+        const hospitalProfile = await this.dataSource.getRepository(HospitalProfile).findOne({
+            where: { user: { id: hospitalId } }
+        });
+
+        if (hospitalProfile) {
+            const previousTotal = hospitalProfile.unitsReceived || 0;
+            const newTotal = previousTotal + donated;
+            
+            hospitalProfile.unitsReceived = newTotal;
+            
+            // Calculate new total reservations: floor(total/5) * 2
+            hospitalProfile.reservedUnits = Math.floor(newTotal / 5) * 2;
+            
+            await this.dataSource.getRepository(HospitalProfile).save(hospitalProfile);
+            this.logger.log(`Hospital ${hospitalProfile.hospitalName}: ${donated} units received. Total: ${newTotal}, Reserved for RM: ${hospitalProfile.reservedUnits}`);
+        }
     }
 
     // Log for hospital
@@ -715,6 +767,26 @@ async getDonorStats(donorId: string) {
 
     const savedMatch = await this.donationMatchesRepository.save(match);
 
+    // Update Hospital reserved units logic
+    // Rule: For every 10 units received, 4 are reserved for RubiMedik
+    const hospitalProfile = await this.dataSource.getRepository(HospitalProfile).findOne({
+        where: { user: { id: hospitalId } }
+    });
+
+    if (hospitalProfile) {
+        const donated = Number(units) || 1;
+        const previousTotal = hospitalProfile.unitsReceived || 0;
+        const newTotal = previousTotal + donated;
+        
+        hospitalProfile.unitsReceived = newTotal;
+        
+        // Calculate new total reservations: floor(total/10) * 4
+        hospitalProfile.reservedUnits = Math.floor(newTotal / 10) * 4;
+        
+        await this.dataSource.getRepository(HospitalProfile).save(hospitalProfile);
+        this.logger.log(`Hospital ${hospitalProfile.hospitalName} (via record): ${donated} units received. Total: ${newTotal}, Reserved for RM: ${hospitalProfile.reservedUnits}`);
+    }
+
     await this.activitiesService.create(
       hospitalId,
       'DONATION_RECORDED',
@@ -751,7 +823,15 @@ async getDonorStats(donorId: string) {
   async findMatchesByHospital(hospitalId: string): Promise<DonationMatch[]> {
     return this.donationMatchesRepository.find({
       where: { request: { hospital: { id: hospitalId } } },
-      relations: ['request', 'donor'],
+      relations: ['request', 'donor', 'request.hospital', 'request.hospital.hospitalProfile'],
+      order: { updatedAt: 'DESC' }
+    });
+  }
+
+  async findRequestsByHospital(hospitalId: string): Promise<BloodRequest[]> {
+    return this.bloodRequestsRepository.find({
+      where: { hospital: { id: hospitalId } },
+      relations: ['hospital', 'hospital.hospitalProfile'],
       order: { createdAt: 'DESC' }
     });
   }
@@ -767,6 +847,67 @@ async getDonorStats(donorId: string) {
         isAnonymous: !!data.isAnonymous
     });
     return this.feedbackRepository.save(feedback);
+  }
+
+  async submitDonorFeedback(hospitalId: string, data: { matchId: string, rating: number, comment: string }) {
+    const match = await this.findMatchById(data.matchId);
+    if (match.request.hospital.id !== hospitalId) throw new BadRequestException('Unauthorized');
+
+    const feedback = this.donorFeedbackRepository.create({
+        hospital: { id: hospitalId } as any,
+        donor: { id: match.donor.id } as any,
+        match: { id: data.matchId } as any,
+        rating: data.rating,
+        comment: data.comment,
+    });
+
+    await this.donorFeedbackRepository.save(feedback);
+    
+    // Activity log for donor
+    await this.activitiesService.create(
+        match.donor.id,
+        'FEEDBACK_RECEIVED',
+        'Hospital Feedback Received',
+        `A hospital has left a ${data.rating}-star review for your donation.`,
+        { matchId: data.matchId }
+    );
+
+    return feedback;
+  }
+
+  async checkPendingReviews(userId: string, role: UserRole) {
+    if (role === UserRole.DONOR) {
+        // Check if donor has COMPLETED matches with no HospitalFeedback
+        const completedMatches = await this.donationMatchesRepository.find({
+            where: { donor: { id: userId }, status: DonationStatus.COMPLETED },
+            relations: ['hospital']
+        });
+
+        const pending = [];
+        for (const match of completedMatches) {
+            const exists = await this.feedbackRepository.findOne({ 
+                where: { donor: { id: userId }, hospital: { id: match.request.hospital.id }, request: { id: match.request.id } } 
+            });
+            if (!exists) pending.push(match);
+        }
+        return pending;
+    } else if (role === UserRole.HOSPITAL) {
+        // Check if hospital has COMPLETED matches with no DonorFeedback
+        const completedMatches = await this.donationMatchesRepository.find({
+            where: { request: { hospital: { id: userId } }, status: DonationStatus.COMPLETED },
+            relations: ['donor', 'request']
+        });
+
+        const pending = [];
+        for (const match of completedMatches) {
+            const exists = await this.donorFeedbackRepository.findOne({ 
+                where: { match: { id: match.id } } 
+            });
+            if (!exists) pending.push(match);
+        }
+        return pending;
+    }
+    return [];
   }
 
   async getFeedbacks(hospitalId: string) {

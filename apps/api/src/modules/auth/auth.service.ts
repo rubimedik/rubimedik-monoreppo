@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
@@ -6,6 +6,8 @@ import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '@repo/shared';
 import { OAuth2Client } from 'google-auth-library';
+import { EmailService } from '../email/email.service';
+import { generateSecret } from 'otplib';
 
 @Injectable()
 export class AuthService {
@@ -15,6 +17,7 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private emailService: EmailService,
   ) {
     this.googleClient = new OAuth2Client(
       this.configService.get<string>('GOOGLE_CLIENT_ID'),
@@ -37,6 +40,20 @@ export class AuthService {
   }
 
   async login(user: any) {
+    if (user.isTwoFactorEnabled) {
+      const tempPayload = { sub: user.id, type: '2fa_pending' };
+      const tempToken = this.jwtService.sign(tempPayload, { expiresIn: '5m' });
+      
+      await this.generateAndSend2FACode(user);
+
+      return {
+        twoFactorRequired: true,
+        tempToken,
+        email: user.email,
+        userId: user.id,
+      };
+    }
+
     const payload = { 
       email: user.email, 
       sub: user.id, 
@@ -131,5 +148,53 @@ export class AuthService {
     } catch (error) {
       throw new UnauthorizedException('Google authentication failed: ' + error.message);
     }
+  }
+
+  async toggleTwoFactor(userId: string, enable: boolean) {
+    const user = await this.usersService.findOne(userId);
+    if (!user) throw new UnauthorizedException();
+
+    if (enable) {
+      const secret = generateSecret();
+      await this.usersService.update(userId, { 
+        isTwoFactorEnabled: true,
+        twoFactorSecret: secret 
+      } as any);
+      return { message: 'Two-factor authentication enabled' };
+    } else {
+      await this.usersService.update(userId, { 
+        isTwoFactorEnabled: false,
+        twoFactorSecret: null 
+      } as any);
+      return { message: 'Two-factor authentication disabled' };
+    }
+  }
+
+  private async generateAndSend2FACode(user: User) {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    await this.usersService.update(user.id, { twoFactorSecret: await bcrypt.hash(code, 10) } as any);
+
+    await this.emailService.sendEmail(
+        user.email,
+        'Your 2FA Verification Code',
+        `<h1>Security Verification</h1><p>Your verification code is: <strong>${code}</strong></p><p>This code will expire in 5 minutes.</p>`,
+    );
+  }
+
+  async verify2FA(userId: string, code: string) {
+    const user = await this.usersService.findByEmailWithPassword((await this.usersService.findOne(userId)).email);
+    
+    if (!user || !user.twoFactorSecret) {
+        throw new BadRequestException('Invalid session');
+    }
+
+    const isValid = await bcrypt.compare(code, user.twoFactorSecret);
+    if (!isValid) {
+        throw new UnauthorizedException('Invalid verification code');
+    }
+
+    await this.usersService.update(userId, { twoFactorSecret: null } as any);
+
+    return this.login({ ...user, isTwoFactorEnabled: false }); 
   }
 }

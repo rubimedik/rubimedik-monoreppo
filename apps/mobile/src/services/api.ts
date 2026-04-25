@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Alert } from 'react-native';
 import { useAuthStore } from '../store/useAuthStore';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/v1';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.152:3000/v1';
 console.log('Connecting to API at:', API_URL);
 
 export const api = axios.create({

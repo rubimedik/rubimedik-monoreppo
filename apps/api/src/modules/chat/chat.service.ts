@@ -1,16 +1,18 @@
-import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, IsNull, MoreThanOrEqual, DataSource, In } from 'typeorm';
 import { ChatRoom } from './entities/chat-room.entity';
 import { Message } from './entities/message.entity';
 import { User } from '../users/entities/user.entity';
 import { Consultation } from '../consultations/entities/consultation.entity';
-import { MessageType, PayoutStatus } from '@repo/shared';
+import { MessageType, PayoutStatus, ConsultationStatus } from '@repo/shared';
 import { format } from 'date-fns';
 import { AiService } from '../ai/ai.service';
 import { TrustScoreService } from '../users/trust-score.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ConfigService } from '@nestjs/config';
+import { RtcTokenBuilder, RtcRole } from 'agora-token';
 
 @Injectable()
 export class ChatService {
@@ -26,20 +28,116 @@ export class ChatService {
     private trustScoreService: TrustScoreService,
     private activitiesService: ActivitiesService,
     private notificationsService: NotificationsService,
+    private configService: ConfigService,
   ) {}
 
-  async findRoom(id: string, userId: string): Promise<any> {
+  async getAgoraToken(roomId: string, userId: string) {
     const room = await this.chatRoomsRepository.findOne({
-      where: { id },
+      where: { id: roomId },
       relations: ['consultation', 'consultation.patient', 'consultation.specialist', 'patient', 'specialist'],
     });
+
     if (!room) {
       throw new NotFoundException('Chat room not found');
     }
 
-    const partner = (room.patient?.id === userId)
-      ? (room.specialist || room.consultation.specialist)
-      : (room.patient || room.consultation.patient);
+    // Verify user belongs to the room
+    const isParticipant = 
+      room.patient?.id === userId || 
+      room.specialist?.id === userId || 
+      room.consultation?.patient?.id === userId || 
+      room.consultation?.specialist?.id === userId;
+
+    if (!isParticipant) {
+      throw new BadRequestException('You are not authorized to join this call');
+    }
+
+    if (room.consultation) {
+        const allowedStatuses = [ConsultationStatus.CONFIRMED, ConsultationStatus.UPCOMING, ConsultationStatus.IN_PROGRESS];
+        if (!allowedStatuses.includes(room.consultation.status as any)) {
+            throw new BadRequestException('Cannot start call for a completed or cancelled consultation.');
+        }
+    }
+
+    // Calculate remaining time
+    const now = new Date();
+    let remainingSeconds = 3600; // Default 1 hour for direct chat calls if no consultation linked
+    
+    if (room.consultation) {
+        const scheduledStartTime = new Date(room.consultation.scheduledAt);
+        const durationMinutes = room.consultation.duration || 30;
+        const gracePeriodMinutes = 5;
+        const sessionEndTime = new Date(scheduledStartTime.getTime() + (durationMinutes + gracePeriodMinutes) * 60 * 1000);
+        
+        if (now > sessionEndTime) {
+            throw new BadRequestException('This consultation session has expired.');
+        }
+        remainingSeconds = Math.floor((sessionEndTime.getTime() - now.getTime()) / 1000);
+    }
+
+    const appId = this.configService.get<string>('AGORA_APP_ID');
+    const appCertificate = this.configService.get<string>('AGORA_APP_CERTIFICATE');
+    const channelName = roomId;
+    const uid = 0; 
+    const role = RtcRole.PUBLISHER;
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const privilegeExpiredTs = currentTimestamp + remainingSeconds;
+
+    if (!appId || !appCertificate) {
+      this.logger.error('Agora configuration missing');
+      throw new InternalServerErrorException('Video service configuration error');
+    }
+
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      appId,
+      appCertificate,
+      channelName,
+      uid,
+      role,
+      privilegeExpiredTs,
+      privilegeExpiredTs,
+    );
+
+    return {
+      token,
+      channelName,
+      appId,
+      remainingSeconds
+    };
+  }
+
+  async findRoom(id: string, userId: string): Promise<any> {
+    let room = await this.chatRoomsRepository.findOne({
+      where: { id },
+      relations: ['consultation', 'consultation.patient', 'consultation.specialist', 'patient', 'specialist'],
+    });
+
+    if (!room) {
+        // Check if ID is a consultation ID
+        const consultation = await this.dataSource.getRepository(Consultation).findOne({ 
+            where: { id },
+            relations: ['patient', 'specialist']
+        });
+
+        if (consultation) {
+            room = new ChatRoom();
+            room.id = id;
+            room.consultation = consultation;
+            await this.chatRoomsRepository.save(room);
+            
+            // Reload with relations
+            room = await this.chatRoomsRepository.findOne({
+                where: { id },
+                relations: ['consultation', 'consultation.patient', 'consultation.specialist', 'patient', 'specialist'],
+            });
+        } else {
+            throw new NotFoundException('Chat room not found');
+        }
+    }
+
+    const partner = (room.patient?.id === userId || room.consultation?.patient?.id === userId)
+      ? (room.specialist || room.consultation?.specialist)
+      : (room.patient || room.consultation?.patient);
 
     const getDisplayName = (u: any) => {
       if (u.fullName) return u.fullName;
@@ -163,12 +261,32 @@ export class ChatService {
 
   async getMessages(roomId: string, page: number = 1, limit: number = 50, userId?: string) {
     // 1. Resolve all rooms shared between the users involved in this roomId
-    const targetRoom = await this.chatRoomsRepository.findOne({
+    let targetRoom = await this.chatRoomsRepository.findOne({
         where: { id: roomId },
         relations: ['consultation', 'consultation.patient', 'consultation.specialist', 'patient', 'specialist']
     });
 
-    if (!targetRoom) throw new NotFoundException('Room not found');
+    if (!targetRoom) {
+        // Auto-create room if it's a valid consultation
+        const consultation = await this.dataSource.getRepository(Consultation).findOne({ 
+            where: { id: roomId },
+            relations: ['patient', 'specialist']
+        });
+
+        if (consultation) {
+            targetRoom = new ChatRoom();
+            targetRoom.id = roomId;
+            targetRoom.consultation = consultation;
+            await this.chatRoomsRepository.save(targetRoom);
+            
+            targetRoom = await this.chatRoomsRepository.findOne({
+                where: { id: roomId },
+                relations: ['consultation', 'consultation.patient', 'consultation.specialist', 'patient', 'specialist']
+            });
+        } else {
+            throw new NotFoundException('Room not found');
+        }
+    }
 
     const partnerId = (targetRoom.patient?.id === userId || targetRoom.consultation?.patient?.id === userId)
         ? (targetRoom.specialist?.id || targetRoom.consultation?.specialist?.id)
@@ -187,7 +305,7 @@ export class ChatService {
 
     const roomIds = sharedRooms.map(r => r.id);
 
-    // 2. Fetch messages from all shared rooms, sorted by date
+    // 2. Fetch messages from all shared rooms, sorted by date DESC (for pagination)
     const [items, total] = await this.messagesRepository.findAndCount({
       where: {
         chatRoom: { id: In(roomIds) }
@@ -199,14 +317,17 @@ export class ChatService {
     });
 
     // 3. Transform messages to include session dividers
-    const transformedItems = items.map(m => ({
+    // Reverse here to show oldest first in the final list
+    const sortedItems = [...items].reverse();
+
+    const transformedItems = sortedItems.map(m => ({
         ...m,
         isSessionDivider: false,
         consultationLabel: m.chatRoom.consultation ? `Consultation · ${format(new Date(m.chatRoom.consultation.createdAt), 'MMM dd, yyyy')}` : null
     }));
 
     return {
-      items: transformedItems.reverse(),
+      items: transformedItems,
       total,
       page,
       limit,
@@ -314,7 +435,8 @@ export class ChatService {
                     metadata: { 
                         chatId: roomId,
                         senderName: senderName 
-                    }
+                    },
+                    skipSave: true
                 });
             }
         }

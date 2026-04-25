@@ -148,7 +148,10 @@ export const ProfileScreen = () => {
         { 
           text: 'Logout', 
           style: 'destructive', 
-          onPress: () => logout() 
+          onPress: () => {
+            queryClient.clear();
+            logout();
+          } 
         },
       ]
     );
@@ -176,7 +179,12 @@ export const ProfileScreen = () => {
 
     // Hide items for donors
     if (user?.activeRole === UserRole.DONOR) {
-        return items.filter(item => item.id !== 'referral');
+        return items.filter(item => item.id !== 'referral' && item.id !== 'notifications' && item.id !== 'bank');
+    }
+
+    // Hide items for hospitals
+    if (user?.activeRole === UserRole.HOSPITAL) {
+        return items.filter(item => item.id !== 'notifications');
     }
 
     return items;

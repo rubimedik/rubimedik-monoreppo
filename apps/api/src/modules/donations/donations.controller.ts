@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Param, UseGuards, Request, Put, Query, Del
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiBody, ApiExtraModels, getSchemaPath } from '@nestjs/swagger';
 import { DonationsService } from './donations.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { DonationStatus } from '@repo/shared';
+import { DonationStatus, UserRole } from '@repo/shared';
 import { CreateBloodRequestDto } from './dto/create-blood-request.dto';
 import { BookDonationDto } from './dto/book-donation.dto';
 import { RecordDonationDto } from './dto/record-donation.dto';
@@ -92,6 +92,15 @@ export class DonationsController {
   @ApiResponse({ status: 200, description: "List of donors matched to this hospital's requests", type: [DonationMatch] })
   async findHospitalMatches(@Request() req) {
     return this.donationsService.findMatchesByHospital(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Get('hospital/requests')
+  @ApiOperation({ summary: 'Get blood requests for the current hospital' })
+  @ApiResponse({ status: 200, description: 'List of blood requests created by the hospital', type: [BloodRequest] })
+  async findHospitalRequests(@Request() req) {
+    return this.donationsService.findRequestsByHospital(req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -219,6 +228,22 @@ export class DonationsController {
   @ApiResponse({ status: 201, description: 'Feedback submitted successfully', type: HospitalFeedback })
   async submitFeedback(@Request() req, @Body() submitFeedbackDto: SubmitFeedbackDto) {
     return this.donationsService.submitFeedback(req.user.userId, submitFeedbackDto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Post('feedback/donor')
+  @ApiOperation({ summary: 'Hospital submits feedback for a donor' })
+  async submitDonorFeedback(@Request() req, @Body() data: { matchId: string, rating: number, comment: string }) {
+    return this.donationsService.submitDonorFeedback(req.user.userId, data);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Get('pending-reviews')
+  @ApiOperation({ summary: 'Check if user has pending reviews to submit' })
+  async getPendingReviews(@Request() req, @Query('role') role: UserRole) {
+    return this.donationsService.checkPendingReviews(req.user.userId, role);
   }
 
   @Get('hospital/:hospitalId/feedbacks')

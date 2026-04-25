@@ -13,13 +13,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { TextInput, PrimaryButton, Card, Avatar, Select, BackButton } from '../components';
-import { CaretLeft, User as UserIcon, Phone, IdentificationCard, FileText, Certificate, Bank, Drop, MapPin, Gps, Note } from 'phosphor-react-native';
+import { CaretLeft, User as UserIcon, Phone, IdentificationCard, FileText, Certificate, Bank, Drop, MapPin, Gps, Note, Medal } from 'phosphor-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { UserRole } from '@repo/shared';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 
 const BLOOD_GROUPS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
 const GENOTYPES = ['AA', 'AS', 'SS', 'AC', 'SC'];
@@ -62,6 +63,7 @@ export const PersonalInformationScreen = () => {
     healthCondition: '',
     lastDonationDate: '',
     medicalNotes: '',
+    donationGoal: '5',
   });
 
   const styles = useMemo(() => StyleSheet.create({
@@ -229,6 +231,7 @@ export const PersonalInformationScreen = () => {
         healthCondition: profile.patientProfile?.healthCondition || profile.healthCondition || '',
         lastDonationDate: profile.lastDonationDate || '',
         medicalNotes: profile.patientProfile?.medicalNotes || profile.medicalNotes || '',
+        donationGoal: profile.donationGoal ? String(profile.donationGoal) : '5',
       });
     }
   }, [profile]);
@@ -276,6 +279,7 @@ export const PersonalInformationScreen = () => {
       state: formData.state,
       healthCondition: formData.healthCondition,
       medicalNotes: formData.medicalNotes,
+      donationGoal: parseInt(formData.donationGoal) || 5,
     };
 
     // Convert coordinates to numbers for the backend
@@ -286,27 +290,50 @@ export const PersonalInformationScreen = () => {
   };
 
   const getCurrentLocation = async () => {
-    // Try to use expo-location if available
     try {
-      const Location = require('expo-location');
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission Needed', 'Location permission is required to find nearby hospitals.');
         return;
       }
       
-      const location = await Location.getCurrentPositionAsync({});
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const { latitude, longitude } = location.coords;
+      
+      // Attempt reverse geocoding
+      let city = formData.city;
+      let state = formData.state;
+      let address = formData.address;
+
+      try {
+        const reverseGeocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (reverseGeocode.length > 0) {
+          const place = reverseGeocode[0];
+          city = place.city || place.subregion || formData.city;
+          state = place.region || formData.state;
+          address = `${place.name || ''} ${place.street || ''} ${place.district || ''}`.trim() || formData.address;
+        }
+      } catch (geoError) {
+        console.warn('Reverse geocoding failed:', geoError);
+      }
+
       setFormData({
         ...formData,
-        latitude: String(location.coords.latitude),
-        longitude: String(location.coords.longitude),
+        latitude: String(latitude),
+        longitude: String(longitude),
+        city,
+        state,
+        address,
       });
-      Alert.alert('Success', 'Location updated!');
+      Alert.alert('Success', 'Location information updated from your GPS!');
     } catch (error: any) {
-      // Fallback: manual entry
+      console.error('Location error:', error);
       Alert.alert(
-        'Location', 
-        'Please enter your location manually or enable location services in your device settings.',
+        'Location Error', 
+        'Could not get your current location. Please ensure location services are enabled on your device.',
         [{ text: 'OK' }]
       );
     }
@@ -422,6 +449,15 @@ export const PersonalInformationScreen = () => {
                   value={formData.genotype}
                   options={genotypes}
                   onChange={(val) => setFormData({ ...formData, genotype: val })}
+                />
+                
+                <TextInput
+                  label="Donation Milestone Goal"
+                  placeholder="e.g. 10"
+                  value={formData.donationGoal}
+                  onChangeText={(text) => setFormData({ ...formData, donationGoal: text })}
+                  keyboardType="numeric"
+                  leftIcon={<Medal color={theme.colors.textSecondary} size={20} />}
                 />
                 
                 <View style={styles.divider} />

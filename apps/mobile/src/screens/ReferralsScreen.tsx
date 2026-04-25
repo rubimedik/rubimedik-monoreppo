@@ -15,7 +15,7 @@ import { Card } from '../components/Card';
 import { Skeleton } from '../components/Skeleton';
 import { Avatar } from '../components/Avatar';
 import { BackButton } from '../components/BackButton';
-import { ShareNetwork, Copy, Gift, Trophy } from 'phosphor-react-native';
+import { ShareNetwork, Copy, Gift, Trophy, CheckCircle } from 'phosphor-react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';

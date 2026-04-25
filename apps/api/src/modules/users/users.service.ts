@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException, Logger, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -16,6 +16,8 @@ import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
@@ -218,16 +220,16 @@ export class UsersService {
   }
 
   async findOne(id: string): Promise<User | null> {
-    const user = await this.usersRepository.findOne({ 
-      where: { id }, 
-      relations: ['wallet', 'specialistProfile', 'hospitalProfile', 'patientProfile'] 
+    const user = await this.usersRepository.findOne({
+      where: { id },
+      relations: ['wallet', 'specialistProfile', 'hospitalProfile', 'patientProfile']
     });
-    
+
     if (user && !user.referralCode) {
       user.referralCode = await this.generateUniqueReferralCode();
       await this.usersRepository.save(user);
     }
-    
+
     return user;
   }
 
@@ -239,12 +241,16 @@ export class UsersService {
       throw new NotFoundException('User profile not found');
     }
 
-    const { fullName, phoneNumber, bloodGroup, bloodType, genotype, avatarUrl, isVerified, activeRole, ...profileData } = data as any;
+    const { fullName, phoneNumber, bloodGroup, bloodType, genotype, avatarUrl, isVerified, activeRole, donationGoal, isTwoFactorEnabled, twoFactorSecret, ...profileData } = data as any;
     const finalBloodGroup = bloodGroup || bloodType;
-    
-    // Update basic user info
-    await this.usersRepository.update(id, { fullName, phoneNumber, bloodGroup: finalBloodGroup, genotype, avatarUrl, isVerified, activeRole });
 
+    // Update basic user info
+    try {
+        await this.usersRepository.update(id, { fullName, phoneNumber, bloodGroup: finalBloodGroup, genotype, avatarUrl, isVerified, activeRole, donationGoal, isTwoFactorEnabled, twoFactorSecret });
+    } catch (error) {
+        this.logger.error(`Failed to update user ${id}: ${error.message}`, error.stack);
+        throw new InternalServerErrorException('Could not update user profile. Database error.');
+    }
     // Update patient profile if health or location data is provided
     const profileFields = ['healthCondition', 'medicalNotes', 'address', 'city', 'state', 'latitude', 'longitude'];
     const hasProfileUpdate = profileFields.some(field => profileData[field] !== undefined);

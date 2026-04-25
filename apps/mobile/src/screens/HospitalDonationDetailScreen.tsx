@@ -190,7 +190,7 @@ export const HospitalDonationDetailScreen = () => {
               <View style={styles.iconContainer}><Drop size={20} color={theme.colors.primary} weight="fill" /></View>
               <View>
                 <Text style={styles.infoLabel}>Donation Type</Text>
-                <Text style={styles.infoValue} style={{ textTransform: 'capitalize' }}>
+                <Text style={[styles.infoValue, { textTransform: 'capitalize' }]}>
                   {(match.donationType || match.request?.donationType || 'Whole Blood').replace(/_/g, ' ')}
                 </Text>
               </View>

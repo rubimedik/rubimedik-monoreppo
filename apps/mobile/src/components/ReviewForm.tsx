@@ -14,16 +14,20 @@ export const ReviewForm: React.FC = () => {
   const route = useRoute<any>();
   const queryClient = useQueryClient();
 
-  const { requestId, hospitalId, reviewId } = route.params || {};
+  const { requestId, hospitalId, reviewId, matchId, role } = route.params || {};
+
+  const isHospitalReviewing = role === 'HOSPITAL';
 
   const { data: existingReview } = useQuery({
-    queryKey: ['review', reviewId],
+    queryKey: ['review', reviewId || matchId],
     queryFn: async () => {
-      if (!reviewId) return null;
-      const reviews = await donationService.getHospitalReviews(hospitalId);
-      return reviews.find(r => r.id === reviewId) || null;
+      if (reviewId) {
+        const reviews = await donationService.getHospitalReviews(hospitalId);
+        return reviews.find(r => r.id === reviewId) || null;
+      }
+      return null;
     },
-    enabled: !!reviewId && !!hospitalId,
+    enabled: !!reviewId && !!hospitalId && !isHospitalReviewing,
   });
 
   const [rating, setRating] = useState(existingReview?.rating || 0);
@@ -40,13 +44,20 @@ export const ReviewForm: React.FC = () => {
   const isEditing = !!reviewId;
 
   const createMutation = useMutation({
-    mutationFn: (data: { requestId: string; hospitalId: string; rating: number; comment: string }) =>
-      donationService.createReview(data),
+    mutationFn: (data: any) =>
+      isHospitalReviewing 
+        ? donationService.submitDonorFeedback({ matchId, rating: data.rating, comment: data.comment })
+        : donationService.createReview(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['request-reviews', requestId] });
-      queryClient.invalidateQueries({ queryKey: ['my-review', requestId] });
-      queryClient.invalidateQueries({ queryKey: ['hospital-reviews', hospitalId] });
-      queryClient.invalidateQueries({ queryKey: ['hospital-rating', hospitalId] });
+      if (isHospitalReviewing) {
+        queryClient.invalidateQueries({ queryKey: ['hospital-matches'] });
+        queryClient.invalidateQueries({ queryKey: ['hospital-pending-reviews'] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['request-reviews', requestId] });
+        queryClient.invalidateQueries({ queryKey: ['my-review', requestId] });
+        queryClient.invalidateQueries({ queryKey: ['hospital-reviews', hospitalId] });
+        queryClient.invalidateQueries({ queryKey: ['hospital-rating', hospitalId] });
+      }
       Alert.alert('Success', 'Thank you for your feedback!');
       handleSuccess();
     },
@@ -153,12 +164,14 @@ export const ReviewForm: React.FC = () => {
           <CaretLeft weight="bold" color={theme.colors.textPrimary} size={24} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isEditing ? 'Edit Review' : 'Leave Feedback'}
+          {isHospitalReviewing ? 'Review Donor' : isEditing ? 'Edit Review' : 'Leave Feedback'}
         </Text>
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.sectionTitle}>How was your donation experience?</Text>
+        <Text style={styles.sectionTitle}>
+          {isHospitalReviewing ? 'How would you rate this donor?' : 'How was your donation experience?'}
+        </Text>
 
         <View style={styles.starContainer}>
           {[1, 2, 3, 4, 5].map((star) => (
@@ -178,10 +191,12 @@ export const ReviewForm: React.FC = () => {
           ))}
         </View>
 
-        <Text style={styles.label}>Your Comment</Text>
+        <Text style={styles.label}>
+          {isHospitalReviewing ? 'Donor Feedback' : 'Your Comment'}
+        </Text>
         <TextInput
           style={styles.input}
-          placeholder="Share your experience at the hospital..."
+          placeholder={isHospitalReviewing ? "Share your feedback about the donor..." : "Share your experience at the hospital..."}
           placeholderTextColor={theme.colors.textSecondary}
           value={comment}
           onChangeText={setComment}

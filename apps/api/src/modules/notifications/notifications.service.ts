@@ -95,12 +95,13 @@ export class NotificationsService implements OnModuleInit {
   /**
    * Compatibility method for older implementations
    */
-  async sendNotification(userId: string, title: string, message: string, type?: string, metadata?: any) {
+  async sendNotification(userId: string, title: string, message: string, type?: string, metadata?: any, skipSave: boolean = false) {
     return this.sendToUser(userId, {
       title,
       body: message,
       type: type || 'GENERAL',
       metadata,
+      skipSave,
     });
   }
 
@@ -112,20 +113,25 @@ export class NotificationsService implements OnModuleInit {
     body: string;
     type: string;
     metadata?: Record<string, any>;
+    skipSave?: boolean;
   }) {
-    // 1. Save to database for in-app history
-    try {
-        const notification = this.notificationsRepository.create({
-          user: { id: userId } as any,
-          title: data.title,
-          message: data.body,
-          type: data.type,
-          metadata: data.metadata,
-        });
-        await this.notificationsRepository.save(notification);
-        this.logger.log(`Notification saved to DB for user ${userId}: ${data.title}`);
-    } catch (dbErr) {
-        this.logger.error(`Failed to save notification to DB for user ${userId}`, dbErr.stack);
+    // 1. Save to database for in-app history (unless skipped)
+    if (!data.skipSave) {
+        try {
+            const notification = this.notificationsRepository.create({
+              user: { id: userId } as any,
+              title: data.title,
+              message: data.body,
+              type: data.type,
+              metadata: data.metadata,
+            });
+            await this.notificationsRepository.save(notification);
+            this.logger.log(`Notification saved to DB for user ${userId}: ${data.title}`);
+        } catch (dbErr) {
+            this.logger.error(`Failed to save notification to DB for user ${userId}`, dbErr.stack);
+        }
+    } else {
+        this.logger.log(`Skipping DB save for notification to user ${userId}: ${data.title}`);
     }
 
     // 2. Fetch device tokens
@@ -213,18 +219,21 @@ export class NotificationsService implements OnModuleInit {
     body: string;
     type: string;
     metadata?: Record<string, any>;
+    skipSave?: boolean;
   }) {
-    // Bulk create database notifications
-    const notifications = userIds.map(userId => 
-      this.notificationsRepository.create({
-        user: { id: userId } as any,
-        title: data.title,
-        message: data.body,
-        type: data.type,
-        metadata: data.metadata,
-      })
-    );
-    await this.notificationsRepository.save(notifications);
+    // Bulk create database notifications (unless skipped)
+    if (!data.skipSave) {
+        const notifications = userIds.map(userId => 
+          this.notificationsRepository.create({
+            user: { id: userId } as any,
+            title: data.title,
+            message: data.body,
+            type: data.type,
+            metadata: data.metadata,
+          })
+        );
+        await this.notificationsRepository.save(notifications);
+    }
 
     // Bulk fetch tokens
     const tokens = await this.deviceTokenRepository.find({

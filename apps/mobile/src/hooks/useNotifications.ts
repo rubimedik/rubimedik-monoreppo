@@ -6,8 +6,8 @@ import { navigationRef } from '../navigation/RootNavigator';
 
 export const useNotifications = (navigation: any) => {
   const { user } = useAuthStore();
-  const notificationListener = useRef<any>();
-  const responseListener = useRef<any>();
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
 
   useEffect(() => {
     // Only register if user is logged in
@@ -50,19 +50,19 @@ export const useNotifications = (navigation: any) => {
 
     switch (data.type) {
       case 'CHAT_MESSAGE':
-        navigationRef.navigate('Chat' as never, { 
+        navigationRef.navigate('Chat' as any, { 
             roomId: data.chatId,
             otherUserName: data.senderName || 'User'
-        } as never);
+        } as any);
         break;
       case 'CONSULTATION_UPDATE':
-        navigationRef.navigate('ConsultationDetail' as never, { consultationId: data.consultationId } as never);
+        navigationRef.navigate('ConsultationDetail' as any, { consultationId: data.consultationId } as any);
         break;
       case 'WALLET_TRANSACTION':
-        navigationRef.navigate('Wallet' as never);
+        navigationRef.navigate('Wallet' as any);
         break;
       case 'BLOOD_REQUEST':
-        navigationRef.navigate('DonationDetails' as never, { id: data.requestId } as never);
+        navigationRef.navigate('DonationDetails' as any, { id: data.requestId } as any);
         break;
       default:
         // navigationRef.navigate('Notifications' as never);

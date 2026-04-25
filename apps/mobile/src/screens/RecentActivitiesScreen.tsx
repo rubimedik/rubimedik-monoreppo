@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { Card } from '../components/Card';
 import { BackButton } from '../components';
-import { CaretLeft, Drop, CheckCircle, PenNib, User as UserIcon, FileText, Funnel, MagnifyingGlass } from 'phosphor-react-native';
+import { CaretLeft, Drop, CheckCircle, PenNib, User as UserIcon, FileText, Funnel, MagnifyingGlass, CalendarPlus, XCircle, VideoCamera } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { useNavigation, useRoute } from '@react-navigation/native';

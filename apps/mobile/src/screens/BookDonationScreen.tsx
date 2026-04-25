@@ -18,15 +18,14 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { donationService, BloodRequest } from '../services/donationService';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Card } from '../components/Card';
-import { BackButton } from '../components';
+import { Badge } from '../components/Badge';
+import { BackButton } from '../components/BackButton';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { format } from 'date-fns';
 import { safeFormat } from '../utils/dateUtils';
 
-export const BookDonationScreen = () => {
+export const BookDonationScreen = ({ navigation, route }: { navigation: any, route: any }) => {
   const { theme, isDarkMode } = useAppTheme();
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
   const initialRequestId = route.params?.requestId;
   const rescheduleMatchId = route.params?.rescheduleMatchId;
 

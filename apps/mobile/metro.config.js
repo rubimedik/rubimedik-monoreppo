@@ -15,6 +15,12 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
+config.resolver.extraNodeModules = {
+  'agora-rn-uikit': path.resolve(workspaceRoot, 'node_modules/agora-rn-uikit'),
+  'react-native-agora': path.resolve(workspaceRoot, 'node_modules/react-native-agora'),
+  'agora-react-native-rtm': path.resolve(workspaceRoot, 'node_modules/agora-react-native-rtm'),
+};
+
 // 3. Re-configure to correctly find react-native
 config.transformer.getTransformOptions = async () => ({
   transform: {

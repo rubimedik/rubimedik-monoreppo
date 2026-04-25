@@ -166,13 +166,29 @@ export const BookingScreen = () => {
 
     while (current < end) {
       const [h, m] = current.split(':').map(Number);
+      
+      // Check if slot is in the past for today
+      const now = new Date();
+      const isToday = selectedDate.toDateString() === now.toDateString();
+      
+      let isPast = false;
+      if (isToday) {
+        const slotDate = new Date(selectedDate);
+        slotDate.setHours(h, m, 0, 0);
+        if (slotDate < now) {
+          isPast = true;
+        }
+      }
+
       const nextDate = new Date();
       nextDate.setHours(h, m + duration, 0);
       const nextTime = `${nextDate.getHours().toString().padStart(2, '0')}:${nextDate.getMinutes().toString().padStart(2, '0')}`;
       
       if (nextTime > end) break;
       
-      slots.push(current);
+      if (!isPast) {
+        slots.push(current);
+      }
       current = nextTime;
     }
     return slots;

@@ -78,6 +78,14 @@ export class HospitalsController {
     return this.hospitalsService.findOne(id);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Put('accept-terms')
+  @ApiOperation({ summary: 'Hospital accepts platform terms and conditions' })
+  acceptTerms(@Request() req) {
+    return this.hospitalsService.acceptTerms(req.user.userId);
+  }
+
   @Get('user/:userId')
   @ApiOperation({ summary: 'Get hospital info linked to a specific user' })
   @ApiResponse({ status: 200, description: 'Hospital object' })

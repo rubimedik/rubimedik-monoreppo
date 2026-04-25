@@ -37,7 +37,9 @@ import {
   X,
   DownloadSimple,
   ShareNetwork,
-  WarningCircle
+  WarningCircle,
+  Microphone,
+  VideoCamera
 } from 'phosphor-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -48,6 +50,9 @@ import * as DocumentPicker from 'expo-document-picker';
 import { getDisplayName } from '../utils/userUtils';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import * as Haptics from 'expo-haptics';
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
+import Animated, { useAnimatedStyle, withRepeat, withTiming, withSequence } from 'react-native-reanimated';
 
 export const ChatScreen = () => {
   const { theme, isDarkMode } = useAppTheme();
@@ -100,16 +105,67 @@ export const ChatScreen = () => {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewData, setPreviewData] = useState<{ url: string, type: 'IMAGE' | 'DOCUMENT', fileName?: string, id?: string } | null>(null);
 
+  // --- Voice-to-Text Logic ---
+  const [isListening, setIsRefreshing] = useState(false); // Using existing state name pattern for internal tracking
+  const [recognizing, setRecognizing] = useState(false);
+
+  useSpeechRecognitionEvent('result', (event) => {
+    if (event.results[0]?.transcript) {
+        setMessage(prev => (prev ? `${prev} ${event.results[0].transcript}` : event.results[0].transcript));
+    }
+  });
+
+  useSpeechRecognitionEvent('end', () => {
+    setRecognizing(false);
+  });
+
+  const startListening = async () => {
+    try {
+        const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+        if (!granted) {
+            Alert.alert('Permission Denied', 'RubiMedik needs microphone access to transcribe your voice.');
+            return;
+        }
+        
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setRecognizing(true);
+        ExpoSpeechRecognitionModule.start({
+            lang: 'en-US',
+            continuous: false,
+            interimResults: false,
+        });
+    } catch (e) {
+        console.error('Speech start error:', e);
+    }
+  };
+
+  const stopListening = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    ExpoSpeechRecognitionModule.stop();
+  };
+
+  const micPulseStyle = useAnimatedStyle(() => {
+    if (!recognizing) return { opacity: 1, scale: 1 };
+    return {
+        opacity: withRepeat(withSequence(withTiming(0.4, { duration: 500 }), withTiming(1, { duration: 500 })), -1, true),
+        transform: [{ scale: withRepeat(withSequence(withTiming(1.1, { duration: 500 }), withTiming(1, { duration: 500 })), -1, true) }]
+    };
+  });
+  // ---------------------------
+
   const isLocked = useMemo(() => {
       if (!roomInfo) return false;
       const status = roomInfo.status;
       const chatClosesAt = roomInfo.chatClosesAt;
-      
+
       const isArchived = status === 'ARCHIVED';
       const isDisputed = status === 'DISPUTED';
+      const isCompleted = status === 'COMPLETED';
+      const isCancelled = status === 'CANCELLED';
+      const isDeclined = status === 'DECLINED';
       const isExpired = chatClosesAt && new Date() > new Date(chatClosesAt);
-      
-      return isArchived || isDisputed || isExpired;
+
+      return isArchived || isDisputed || isExpired || isCompleted || isCancelled || isDeclined;
   }, [roomInfo]);
 
   const lockReason = useMemo(() => {
@@ -117,9 +173,11 @@ export const ChatScreen = () => {
       const status = roomInfo.status;
       if (status === 'DISPUTED') return 'This chat is locked due to an active dispute.';
       if (status === 'ARCHIVED') return 'This chat has been archived and is now read-only.';
+      if (status === 'COMPLETED') return 'This consultation has ended and the chat is now read-only.';
+      if (status === 'CANCELLED') return 'This consultation was cancelled and the chat is now read-only.';
+      if (status === 'DECLINED') return 'This request was declined and the chat is now read-only.';
       return 'The consultation window has closed. This chat is now read-only.';
   }, [roomInfo]);
-
   const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
@@ -607,17 +665,42 @@ export const ChatScreen = () => {
             <Text style={styles.headerStatus}>{isLocked ? 'Read-only' : 'Online'}</Text>
           </View>
         </View>
-        <View style={styles.headerActions}>
-            <Pressable 
-                style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]} 
-                onPress={() => otherPhone ? Linking.openURL(`tel:${otherPhone}`) : Alert.alert('Not Available', 'Phone number is not provided.')}
-            >
-                <Phone color={theme.colors.primary} size={22} weight="fill" />
-            </Pressable>
-            <Pressable style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}>
-                <DotsThreeVertical color={theme.colors.textPrimary} size={22} weight="bold" />
-            </Pressable>
-        </View>
+        {!isLocked && (
+            <View style={styles.headerActions}>
+                <Pressable 
+                    style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]} 
+                    onPress={async () => {
+                        // Check if consultation is within 10 minutes
+                        if (roomInfo?.consultation?.scheduledAt) {
+                            const now = new Date();
+                            const startTime = new Date(roomInfo.consultation.scheduledAt);
+                            const tenMinsBefore = new Date(startTime.getTime() - 10 * 60 * 1000);
+                            
+                            if (now < tenMinsBefore) {
+                                Alert.alert('Too Early', 'The video call will be available 10 minutes before your scheduled appointment.');
+                                return;
+                            }
+                        }
+
+                        try {
+                            const response = await api.get(`/chat/rooms/${roomId}/token`);
+                            const { token, channelName, appId } = response.data;
+                            navigation.navigate('AgoraCall', { 
+                                channelName, 
+                                consultationId: roomId,
+                                token,
+                                appId
+                            });
+                        } catch (error: any) {
+                            const message = error.response?.data?.message || 'Could not secure a video connection.';
+                            Alert.alert('Call Error', message);
+                        }
+                    }}
+                >
+                    <VideoCamera color={theme.colors.primary} size={22} weight="fill" />
+                </Pressable>
+            </View>
+        )}
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0} style={{ flex: 1 }}>
@@ -668,16 +751,29 @@ export const ChatScreen = () => {
                         <Plus color={theme.colors.textSecondary} size={26} />
                     </Pressable>
                     <View style={styles.inputWrapper}>
-                       <TextInput style={styles.input} placeholder="Type a message..." placeholderTextColor={theme.colors.textSecondary} value={message} onChangeText={setMessage} multiline={true} blurOnSubmit={false} />
+                       <TextInput style={styles.input} placeholder={recognizing ? "Listening..." : "Type a message..."} placeholderTextColor={theme.colors.textSecondary} value={message} onChangeText={setMessage} multiline={true} blurOnSubmit={false} />
                     </View>
-                    <Pressable 
-                       style={({ pressed }) => [styles.sendBtn, (!message.trim() || sendMessageMutation.isPending) && styles.sendBtnDisabled, pressed && { opacity: 0.7 }]} 
-                       disabled={!message.trim() || sendMessageMutation.isPending} 
-                       onPress={() => sendMessageMutation.mutate({ content: message.trim(), replyToId: replyingTo?.id })}
-                       hitSlop={10}
-                    >
-                     <PaperPlaneRight color="white" size={20} weight="fill" />
-                    </Pressable>
+                    {!message.trim() && (
+                        <Animated.View style={[micPulseStyle, { marginRight: 12 }]}>
+                            <Pressable 
+                                onPressIn={startListening}
+                                onPressOut={stopListening}
+                                style={({ pressed }) => [{ width: 44, height: 44, borderRadius: 22, backgroundColor: recognizing ? theme.colors.error : (isDarkMode ? '#2C2C2E' : '#E5E5EA'), justifyContent: 'center', alignItems: 'center' }, pressed && { opacity: 0.7 }]}
+                            >
+                                <Microphone color={recognizing ? 'white' : theme.colors.textSecondary} size={22} weight={recognizing ? "fill" : "regular"} />
+                            </Pressable>
+                        </Animated.View>
+                    )}
+                    {(!!message.trim() || sendMessageMutation.isPending) && (
+                        <Pressable 
+                           style={({ pressed }) => [styles.sendBtn, (!message.trim() || sendMessageMutation.isPending) && styles.sendBtnDisabled, pressed && { opacity: 0.7 }]} 
+                           disabled={!message.trim() || sendMessageMutation.isPending} 
+                           onPress={() => sendMessageMutation.mutate({ content: message.trim(), replyToId: replyingTo?.id })}
+                           hitSlop={10}
+                        >
+                         <PaperPlaneRight color="white" size={20} weight="fill" />
+                        </Pressable>
+                    )}
                     </View>
 
             </View>

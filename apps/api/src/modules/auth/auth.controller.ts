@@ -98,4 +98,20 @@ export class AuthController {
   getProfile(@Request() req) {
     return req.user;
   }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Post('2fa/toggle')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Toggle Two-Factor Authentication' })
+  async toggle2FA(@Request() req, @Body() body: { enable: boolean }) {
+    return this.authService.toggleTwoFactor(req.user.userId, body.enable);
+  }
+
+  @Post('2fa/verify')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Verify 2FA code during login' })
+  async verify2FA(@Body() body: { userId: string, code: string }) {
+    return this.authService.verify2FA(body.userId, body.code);
+  }
 }

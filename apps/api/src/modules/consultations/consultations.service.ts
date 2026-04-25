@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, Like } from 'typeorm';
 import { Consultation } from './entities/consultation.entity';
 import { Appointment } from './entities/appointment.entity';
 import { ChatRoom } from '../chat/entities/chat-room.entity';
@@ -15,6 +15,9 @@ import { ActivitiesService } from '../activities/activities.service';
 import { AiService } from '../ai/ai.service';
 import { TrustScoreService } from '../users/trust-score.service';
 import { Message } from '../chat/entities/message.entity';
+import { User } from '../users/entities/user.entity';
+import { Wallet } from '../wallet/entities/wallet.entity';
+import { RtcTokenBuilder, RtcRole } from 'agora-token';
 
 @Injectable()
 export class ConsultationsService {
@@ -42,6 +45,76 @@ export class ConsultationsService {
     return this.consultationsRepository.find({
       relations: ['specialist', 'patient', 'appointments'],
     });
+  }
+
+  async getAgoraToken(consultationId: string, userId: string) {
+    const consultation = await this.consultationsRepository.findOne({
+      where: { id: consultationId },
+      relations: ['patient', 'specialist'],
+    });
+
+    if (!consultation) {
+      throw new NotFoundException('Consultation not found');
+    }
+
+    // 1. Verify user is part of this consultation
+    if (consultation.patient.id !== userId && consultation.specialist.id !== userId) {
+      throw new BadRequestException('You are not authorized to join this consultation');
+    }
+
+    // 2. Verify consultation status
+    const allowedStatuses = [ConsultationStatus.CONFIRMED, ConsultationStatus.UPCOMING, ConsultationStatus.IN_PROGRESS];
+    if (!allowedStatuses.includes(consultation.status as any)) {
+      throw new BadRequestException(`Cannot join call. Consultation is ${consultation.status.toLowerCase()}`);
+    }
+
+    // 3. Calculate remaining time
+    const now = new Date();
+    const scheduledStartTime = new Date(consultation.scheduledAt);
+    const durationMinutes = consultation.duration || 30;
+    const gracePeriodMinutes = 5; 
+    
+    const sessionEndTime = new Date(scheduledStartTime.getTime() + (durationMinutes + gracePeriodMinutes) * 60 * 1000);
+    const bufferStartTime = new Date(scheduledStartTime.getTime() - 10 * 60 * 1000); // 10 mins before
+
+    if (now < bufferStartTime) {
+        throw new BadRequestException('It is too early to join this consultation.');
+    }
+    if (now > sessionEndTime) {
+        throw new BadRequestException('This consultation session has expired.');
+    }
+
+    const remainingSeconds = Math.floor((sessionEndTime.getTime() - now.getTime()) / 1000);
+
+    const appId = this.configService.get<string>('AGORA_APP_ID');
+    const appCertificate = this.configService.get<string>('AGORA_APP_CERTIFICATE');
+    const channelName = consultationId;
+    const uid = 0; // 0 allows Agora to assign a random uid
+    const role = RtcRole.PUBLISHER;
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const privilegeExpiredTs = currentTimestamp + remainingSeconds; // Set token expiry to match session end
+
+    if (!appId || !appCertificate) {
+      this.logger.error('Agora App ID or Certificate is missing from environment');
+      throw new InternalServerErrorException('Video service configuration error');
+    }
+
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      appId,
+      appCertificate,
+      channelName,
+      uid,
+      role,
+      privilegeExpiredTs,
+      privilegeExpiredTs,
+    );
+
+    return {
+      token,
+      channelName,
+      appId,
+      remainingSeconds,
+    };
   }
 
   
@@ -131,6 +204,12 @@ export class ConsultationsService {
 
     if (scheduledAt) {
         const date = new Date(scheduledAt);
+        const now = new Date();
+
+        if (date < now) {
+            throw new BadRequestException('Cannot book a consultation in the past');
+        }
+
         const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
         const dayName = days[date.getDay()];
         
@@ -207,7 +286,6 @@ export class ConsultationsService {
       const consultation = new Consultation();
       consultation.patient = { id: patientId } as any;
       consultation.specialist = { id: specialistProfile.user.id } as any; // Map to correct User ID
-      consultation.totalFee = totalFee;
       consultation.platformFee = totalFee * 0.2;
       consultation.specialistPayout = totalFee * 0.8;
       consultation.status = ConsultationStatus.UPCOMING;
@@ -219,6 +297,10 @@ export class ConsultationsService {
       consultation.scheduledAt = new Date(scheduledAt);
 
       const savedConsultation = await queryRunner.manager.save(consultation);
+
+      // Auto-generate Jitsi Meeting Link using the generated ID
+      savedConsultation.meetingLink = `https://meet.jit.si/rubimedik-${savedConsultation.id}`;
+      await queryRunner.manager.save(savedConsultation);
 
       // Find existing chat room between this patient and specialist to persist chat history
       let chatRoom = await queryRunner.manager.findOne(ChatRoom, {
@@ -253,13 +335,25 @@ export class ConsultationsService {
       await this.activitiesService.create(patientId, 'CONSULTATION_BOOKED', 'Consultation Booked', `You booked a consultation with ${specialistProfile.user.fullName}`);
       await this.activitiesService.create(specialistProfile.user.id, 'CONSULTATION_BOOKED', 'New Consultation', `A new consultation has been booked by ${wallet.user.fullName}`);
 
-      // Trigger Email & Notification to Specialist
+      // 1. Notify Specialist
       const specialistEmail = specialistProfile.user.email;
-      await this.emailService.sendBookingConfirmation(
+      const specialistName = specialistProfile.user.fullName || 'Specialist';
+      const patientName = wallet.user.fullName || wallet.user.email.split('@')[0];
+      const apptDate = new Date(scheduledAt || Date.now());
+
+      await this.emailService.sendSpecialistBookingAlert(
           specialistEmail, 
-          specialistProfile.user.fullName || 'Doctor', 
-          new Date(scheduledAt || Date.now()),
-          wallet.user.fullName || wallet.user.email.split('@')[0]
+          patientName,
+          apptDate,
+          specialistName
+      );
+
+      // 2. Notify Patient
+      await this.emailService.sendBookingConfirmation(
+          wallet.user.email,
+          specialistName,
+          apptDate,
+          patientName
       );
 
       await this.notificationsService.sendNotification(
@@ -312,6 +406,20 @@ export class ConsultationsService {
     return consultation;
   }
 
+  async declineConsultation(id: string, specialistId: string) {
+    const consultation = await this.findOne(id);
+    if (consultation.specialist.id !== specialistId) {
+        throw new BadRequestException('Unauthorized to decline this consultation');
+    }
+
+    if (consultation.status !== ConsultationStatus.UPCOMING) {
+        throw new BadRequestException('Can only decline upcoming requests');
+    }
+
+    consultation.status = ConsultationStatus.DECLINED;
+    return this.processRefund(consultation, 1, true); // Full refund if declined by specialist
+  }
+
   async rescheduleConsultation(id: string, userId: string, newDate: string) {
     const consultation = await this.findOne(id);
     if (consultation.specialist.id !== userId && consultation.patient.id !== userId) {
@@ -319,6 +427,12 @@ export class ConsultationsService {
     }
 
     const scheduledDate = new Date(newDate);
+    const now = new Date();
+
+    if (scheduledDate < now) {
+        throw new BadRequestException('Cannot reschedule to a past time');
+    }
+
     const duration = consultation.duration || 30;
 
     // Fetch specialist profile for availability check
@@ -423,8 +537,10 @@ export class ConsultationsService {
         totalGraceMs = Number(envHours || 48) * 60 * 60 * 1000;
     }
     
-    consultation.chatClosesAt = new Date(now.getTime() + totalGraceMs);
-    consultation.payoutReleasesAt = consultation.chatClosesAt;
+    // Chat stays open until payout is PAID. 
+    // chatClosesAt will now be used by the scheduler to ARCHIVE the consultation only AFTER it is PAID.
+    consultation.payoutReleasesAt = new Date(now.getTime() + totalGraceMs);
+    consultation.chatClosesAt = null; // We'll set this during payout execution instead
 
     this.logger.log(`Consultation ${consultationId} completed. Payout scheduled for: ${consultation.payoutReleasesAt.toISOString()}`);
     
@@ -436,7 +552,8 @@ export class ConsultationsService {
     const ghostCheck = await this.aiService.detectGhostConsultation({
         durationMinutes: (now.getTime() - new Date(consultation.scheduledAt || consultation.createdAt).getTime()) / 60000,
         messagesCount: messages,
-        hasPatientFeedback: !!consultation.patientFeedback
+        hasPatientFeedback: !!consultation.patientFeedback,
+        isEarlyCompletion: true // Flag that we are checking immediately after specialist clicked complete
     });
 
     if (ghostCheck?.isGhost) {
@@ -493,6 +610,15 @@ export class ConsultationsService {
 
     if (isPatient) {
         consultation.patientFeedback = feedback;
+        
+        // If it was held due to "No Patient Feedback" or "Waiting for feedback", we can re-evaluate
+        const note = consultation.payoutNote?.toLowerCase() || '';
+        if (consultation.payoutStatus === PayoutStatus.HELD && (note.includes('feedback') || note.includes('review'))) {
+            this.logger.log(`Consultation ${consultationId} feedback received. Clearing hold flag.`);
+            consultation.payoutStatus = PayoutStatus.PENDING;
+            consultation.payoutNote = 'Feedback received. Payout hold cleared.';
+        }
+
         // Update specialist rating if rating exists in feedback
         if (feedback.rating) {
             await this.addReview(consultationId, userId, feedback);
@@ -533,10 +659,10 @@ export class ConsultationsService {
         if (feedback.medicalReportUrl) consultation.medicalReportUrl = feedback.medicalReportUrl;
     }
 
-    // Check if both have submitted feedback (payout logic moved to automated scheduler)
+    // Check if both have submitted feedback (trigger immediate payout logic)
     if (consultation.patientFeedback && consultation.specialistFeedback) {
-        this.logger.log(`Feedback complete for consultation ${consultationId}. Payout scheduled for ${consultation.payoutReleasesAt}`);
-        await this.consultationsRepository.save(consultation);
+        this.logger.log(`Feedback complete for consultation ${consultationId}. Triggering immediate payout processing.`);
+        await this.processPayoutLogic(consultation);
     } else {
         await this.consultationsRepository.save(consultation);
     }
@@ -607,6 +733,9 @@ export class ConsultationsService {
         if (existingFee) await queryRunner.manager.delete(Transaction, { reference: `FEE-${consultation.id}` });
 
         consultation.payoutStatus = PayoutStatus.PAID;
+        consultation.status = ConsultationStatus.COMPLETED;
+        // Close chat 1 hour after payout is released to allow final "thank you" messages
+        consultation.chatClosesAt = new Date(Date.now() + (60 * 60 * 1000)); 
         await queryRunner.manager.save(consultation);
 
         const specialistWallet = await this.walletService.getBalance(consultation.specialist.id);
@@ -622,15 +751,44 @@ export class ConsultationsService {
         payoutTx.metadata = { consultationId: consultation.id, note: 'Consultation Payout' };
         await queryRunner.manager.save(payoutTx);
 
-        // Record platform fee transaction under specialist wallet but as PLATFORM_FEE type
-        const feeTx = new Transaction();
-        feeTx.wallet = specialistWallet;
-        feeTx.amount = consultation.platformFee;
-        feeTx.type = TransactionType.PLATFORM_FEE;
-        feeTx.reference = `FEE-${consultation.id}`;
-        feeTx.status = TransactionStatus.COMPLETED;
-        feeTx.metadata = { consultationId: consultation.id, note: 'Platform Fee Deduction' };
-        await queryRunner.manager.save(feeTx);
+        // Record platform fee transaction
+        // Find a specific admin wallet to credit the platform fee
+        const platformEmail = this.configService.get('PLATFORM_ADMIN_EMAIL') || 'agatevureglory@gmail.com';
+        const adminUser = await queryRunner.manager.findOne(User, {
+            where: { email: platformEmail },
+            relations: ['wallet']
+        });
+
+        if (adminUser && adminUser.wallet) {
+            const adminWallet = adminUser.wallet;
+            adminWallet.balance = Number(adminWallet.balance) + Number(consultation.platformFee);
+            await queryRunner.manager.save(adminWallet);
+
+            const feeTx = new Transaction();
+            feeTx.wallet = adminWallet;
+            feeTx.amount = consultation.platformFee;
+            feeTx.type = TransactionType.PLATFORM_FEE;
+            feeTx.reference = `FEE-${consultation.id}`;
+            feeTx.status = TransactionStatus.COMPLETED;
+            feeTx.metadata = { 
+                consultationId: consultation.id, 
+                note: 'Platform Fee Income',
+                specialistId: consultation.specialist.id 
+            };
+            await queryRunner.manager.save(feeTx);
+            this.logger.log(`Platform fee of ${consultation.platformFee} credited to admin ${adminUser.email}`);
+        } else {
+            this.logger.warn(`No admin wallet found to credit platform fee for consultation ${consultation.id}`);
+            // Fallback: Record it under specialist wallet as a deduction (as before) but balance won't change
+            const feeTx = new Transaction();
+            feeTx.wallet = specialistWallet;
+            feeTx.amount = consultation.platformFee;
+            feeTx.type = TransactionType.PLATFORM_FEE;
+            feeTx.reference = `FEE-${consultation.id}`;
+            feeTx.status = TransactionStatus.COMPLETED;
+            feeTx.metadata = { consultationId: consultation.id, note: 'Platform Fee Deduction (No Admin Wallet Found)' };
+            await queryRunner.manager.save(feeTx);
+        }
 
         await queryRunner.commitTransaction();
     } catch (err) {
@@ -657,30 +815,84 @@ export class ConsultationsService {
       throw new BadRequestException('Only upcoming or confirmed consultations can be cancelled');
     }
 
-    const res = await this.processRefund(consultation, 1, userId === consultation.specialist.id);
-    
+    const isSpecialist = userId === consultation.specialist.id;
+    let refundRatio = 1; // Default to full refund
+
+    if (!isSpecialist) {
+        // Patient Cancellation - Apply tiered refund policy
+        const now = new Date();
+        const scheduledTime = consultation.scheduledAt ? new Date(consultation.scheduledAt) : null;
+        
+        if (scheduledTime && consultation.status === ConsultationStatus.CONFIRMED) {
+            const diffHours = (scheduledTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+            
+            const pctGt48 = Number(this.configService.get('REFUND_PERCENT_GT_48H') || 100);
+            const pct24To48 = Number(this.configService.get('REFUND_PERCENT_24_48H') || 50);
+            const pctLt24 = Number(this.configService.get('REFUND_PERCENT_LT_24H') || 0);
+
+            if (diffHours > 48) {
+                refundRatio = pctGt48 / 100;
+            } else if (diffHours >= 24) {
+                refundRatio = pct24To48 / 100;
+            } else {
+                refundRatio = pctLt24 / 100;
+            }
+        } else {
+            // If it's not confirmed yet, always 100% refund
+            refundRatio = 1;
+        }
+    }
+
+    const res = await this.processRefund(consultation, refundRatio, isSpecialist);
+
     // Notify both parties
     const participants = [consultation.patient, consultation.specialist];
     for (const p of participants) {
+      const isRecipientSpecialist = p.id === consultation.specialist.id;
+      const refundInfo = refundRatio < 1 ? ` (Refund: ${refundRatio * 100}%)` : '';
+      
       await this.emailService.sendCancellationNotification(
-          p.email, 
-          'Consultation Cancelled', 
-          'Request by user',
+          p.email,
+          'Consultation Cancelled',
+          isSpecialist ? 'Cancelled by specialist' : `Cancelled by patient${refundInfo}`,
           p.fullName || p.email.split('@')[0]
       );
-      await this.notificationsService.sendNotification(p.id, 'Consultation Cancelled', 'A scheduled meeting has been removed.', 'cancellation');
+      await this.notificationsService.sendNotification(
+          p.id, 
+          'Consultation Cancelled', 
+          isRecipientSpecialist && !isSpecialist ? `Patient cancelled. Refund applied: ${refundRatio * 100}%` : 'A scheduled meeting has been removed.', 
+          'cancellation'
+      );
     }
 
     return res;
   }
 
-  private async processRefund(consultation: Consultation, refundRatio: number, isSpecialistCancelled: boolean = false) {
+  async adminRefundConsultation(id: string, adminNote: string) {
+    const consultation = await this.findOne(id);
+    if (consultation.payoutStatus === PayoutStatus.PAID) {
+        throw new BadRequestException('Cannot refund a consultation that has already been paid out');
+    }
+    
+    consultation.payoutNote = `Admin Refund: ${adminNote}`;
+    return this.processRefund(consultation, 1, true);
+  }
+
+  private async processRefund(consultation: Consultation, refundRatio: number, isSpecialistInitiated: boolean = false) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      consultation.status = ConsultationStatus.CANCELLED;
+      const originalStatus = consultation.status;
+      const finalStatus = isSpecialistInitiated ? ConsultationStatus.DECLINED : ConsultationStatus.CANCELLED;
+      
+      // Update status if it's not already terminal
+      if (![ConsultationStatus.DECLINED, ConsultationStatus.CANCELLED].includes(consultation.status)) {
+        consultation.status = finalStatus;
+      }
+      
+      consultation.payoutStatus = PayoutStatus.REFUNDED;
       await queryRunner.manager.save(consultation);
 
       const refundAmount = Number(consultation.totalFee) * refundRatio;
@@ -693,8 +905,8 @@ export class ConsultationsService {
         await this.walletService.createTransaction(
           consultation.patient.id,
           refundAmount,
-          TransactionType.CREDIT,
-          `REFUND-${consultation.id}`,
+          TransactionType.REFUND,
+          `REFUND-${consultation.id}-${Date.now()}`,
           TransactionStatus.COMPLETED,
           { consultationId: consultation.id, note: 'Consultation Refund' }
         );
@@ -703,10 +915,10 @@ export class ConsultationsService {
       await queryRunner.commitTransaction();
 
       // Activity Logs
-      await this.activitiesService.create(consultation.patient.id, 'CONSULTATION_CANCELLED', 'Consultation Cancelled', `Your consultation with ${consultation.specialist.fullName} has been cancelled.`);
+      await this.activitiesService.create(consultation.patient.id, 'CONSULTATION_CANCELLED', 'Consultation Refunded', `Your payment for consultation with ${consultation.specialist.fullName} has been refunded.`);
       await this.activitiesService.create(consultation.specialist.id, 'CONSULTATION_CANCELLED', 'Consultation Cancelled', `The consultation with ${consultation.patient.fullName} has been cancelled.`);
 
-      return { status: 'cancelled', refundAmount };
+      return { status: 'refunded', refundAmount };
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw new InternalServerErrorException(err.message);
@@ -734,7 +946,7 @@ export class ConsultationsService {
       throw new BadRequestException('Only the patient of this consultation can leave a review');
     }
 
-    if (![ConsultationStatus.COMPLETED, ConsultationStatus.PENDING_PAYOUT].includes(consultation.status)) {
+    if (![ConsultationStatus.COMPLETED, ConsultationStatus.PENDING_PAYOUT, ConsultationStatus.ARCHIVED].includes(consultation.status)) {
       throw new BadRequestException('Can only review completed consultations');
     }
 

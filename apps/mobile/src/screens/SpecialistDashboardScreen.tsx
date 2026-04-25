@@ -54,10 +54,9 @@ type NavigationProp = NativeStackNavigationProp<SpecialistStackParamList, 'MainT
 
 const { width } = Dimensions.get('window');
 
-export const SpecialistDashboardScreen = () => {
+export const SpecialistDashboardScreen = ({ navigation }: { navigation: any }) => {
   const { theme, isDarkMode } = useAppTheme();
   const { user } = useAuthStore();
-  const navigation = useNavigation<NavigationProp>();
   const queryClient = useQueryClient();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -283,6 +282,7 @@ export const SpecialistDashboardScreen = () => {
             alignItems: 'center',
             marginTop: 4,
             gap: 12,
+            flexWrap: 'wrap',
         },
         metaItem: {
             flexDirection: 'row',
@@ -295,10 +295,22 @@ export const SpecialistDashboardScreen = () => {
             color: theme.colors.textSecondary,
         },
         reqActions: {
-            flexDirection: 'row', gap: 12,
+            flexDirection: 'row', gap: 10,
+        },
+        reqBtn: {
+            flex: 1, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center',
         },
         confirmBtn: {
             flex: 1, height: 44, borderRadius: 12, backgroundColor: '#2E7D32', justifyContent: 'center', alignItems: 'center',
+        },
+        confirmBtnText: {
+            color: 'white', fontWeight: 'bold', fontSize: 13,
+        },
+        declineBtn: {
+            backgroundColor: '#FFEBEE',
+        },
+        declineBtnText: {
+            color: '#C62828', fontWeight: 'bold', fontSize: 13,
         },
         reschedBtn: {
             flex: 1, height: 44, borderRadius: 12, backgroundColor: theme.colors.background, borderWidth: 1, borderColor: theme.colors.border, justifyContent: 'center', alignItems: 'center',
@@ -374,7 +386,7 @@ export const SpecialistDashboardScreen = () => {
     });
 
     const reqs = sorted.filter(a => a.status === 'UPCOMING');
-    const upcs = sorted.filter(a => a.status === 'CONFIRMED' || a.status === 'PENDING_PAYOUT');
+    const upcs = sorted.filter(a => a.status === 'CONFIRMED' || a.status === 'PENDING_PAYOUT' || (a.status === 'ARCHIVED' && a.payoutStatus === 'HELD'));
     const next = upcs[0] || null;
     return { nextAppt: next, requests: reqs.slice(0, 2), upcoming: upcs.slice(0, 3) };
   }, [appointments]);
@@ -416,13 +428,23 @@ export const SpecialistDashboardScreen = () => {
   }, [refetchProfile, refetchStats, refetchAppts, refetchActivities, queryClient]);
 
   const confirmMutation = useMutation({
-      mutationFn: (id: string) => api.put(`/consultations/${id}/confirm`),
-      onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ['specialist-appointments'] });
-          Alert.alert('Success', 'Appointment confirmed successfully.');
-      }
+    mutationFn: (id: string) => api.put(`/consultations/${id}/confirm`),
+    onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['specialist-appointments'] });
+        Alert.alert('Success', 'Appointment confirmed successfully.');
+    }
   });
 
+  const declineMutation = useMutation({
+    mutationFn: (id: string) => api.put(`/consultations/${id}/decline`),
+    onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['specialist-appointments'] });
+        Alert.alert('Success', 'Appointment declined and patient refunded.');
+    },
+    onError: (err: any) => {
+        Alert.alert('Error', err?.response?.data?.message || 'Failed to decline');
+    }
+  });
   const cancelMutation = useMutation({
       mutationFn: (id: string) => api.put(`/consultations/${id}/cancel`),
       onSuccess: () => {
@@ -567,21 +589,27 @@ export const SpecialistDashboardScreen = () => {
 
                 <View style={styles.heroGrid}>
                     <View>
-                        <Text style={styles.heroLabel}>{nextAppt.status === 'PENDING_PAYOUT' ? 'Payout Schedule' : 'Date'}</Text>
-                        {nextAppt.status === 'PENDING_PAYOUT' && nextAppt.payoutReleasesAt ? (
-                            <CountdownTimer 
-                                targetDate={nextAppt.payoutReleasesAt} 
-                                prefix="" 
-                                textStyle={{ color: 'white', fontSize: 15 }} 
-                            />
+                        <Text style={styles.heroLabel}>{nextAppt.status === 'PENDING_PAYOUT' || (nextAppt.status === 'ARCHIVED' && nextAppt.payoutStatus === 'HELD') ? 'Payout Status' : 'Date'}</Text>
+                        {nextAppt.payoutStatus === 'HELD' ? (
+                            <Text style={[styles.heroValue, { color: '#FFCDD2' }]}>Held for Review</Text>
+                        ) : (nextAppt.status === 'PENDING_PAYOUT' && !!nextAppt.payoutReleasesAt) ? (
+                            (!nextAppt.patientFeedback || !nextAppt.specialistFeedback) ? (
+                                <CountdownTimer 
+                                    targetDate={nextAppt.payoutReleasesAt} 
+                                    prefix="" 
+                                    textStyle={{ color: 'white', fontSize: 15 }} 
+                                />
+                            ) : (
+                                <Text style={styles.heroValue}>Processing Payout...</Text>
+                            )
                         ) : (
                             <Text style={styles.heroValue}>{safeFormat(nextAppt.scheduledAt || nextAppt.createdAt, 'EEEE MMM do')}</Text>
                         )}
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={styles.heroLabel}>{nextAppt.status === 'PENDING_PAYOUT' ? 'Estimated Amount' : 'Time'}</Text>
+                        <Text style={styles.heroLabel}>{nextAppt.status === 'PENDING_PAYOUT' || (nextAppt.status === 'ARCHIVED' && nextAppt.payoutStatus === 'HELD') ? 'Estimated Amount' : 'Time'}</Text>
                         <Text style={styles.heroValue}>
-                            {nextAppt.status === 'PENDING_PAYOUT' 
+                            {nextAppt.status === 'PENDING_PAYOUT' || (nextAppt.status === 'ARCHIVED' && nextAppt.payoutStatus === 'HELD')
                                 ? `₦${Number(nextAppt.specialistPayout || 0).toLocaleString()}`
                                 : `${safeFormat(nextAppt.scheduledAt || nextAppt.createdAt, 'hh:mm aa')} - ${safeFormat(new Date(new Date(nextAppt.scheduledAt || nextAppt.createdAt).getTime() + (nextAppt.duration || 30) * 60000), 'hh:mm aa')}`
                             }
@@ -590,11 +618,17 @@ export const SpecialistDashboardScreen = () => {
                 </View>
 
                 <View style={styles.heroActions}>
-                    <TouchableOpacity style={styles.heroBtnWhite} onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: nextAppt.id })}>
-                        <Text style={styles.heroBtnTextRed}>Re-Schedule</Text>
-                    </TouchableOpacity>
+                    {nextAppt.payoutStatus === 'HELD' ? (
+                         <TouchableOpacity style={[styles.heroBtnWhite, { backgroundColor: '#FFEBEE' }]} onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: nextAppt.id })}>
+                            <Text style={[styles.heroBtnTextRed, { color: '#C62828' }]}>Resolve Issue</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity style={styles.heroBtnWhite} onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: nextAppt.id })}>
+                            <Text style={styles.heroBtnTextRed}>Re-Schedule</Text>
+                        </TouchableOpacity>
+                    )}
                     <TouchableOpacity style={styles.heroBtnDark} onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: nextAppt.id })}>
-                        <Text style={styles.heroBtnTextWhite}>View Profile</Text>
+                        <Text style={styles.heroBtnTextWhite}>View Details</Text>
                     </TouchableOpacity>
                 </View>
             </TouchableOpacity>
@@ -610,7 +644,11 @@ export const SpecialistDashboardScreen = () => {
                 </View>
                 {requests.map((item) => (
                     <View key={item.id} style={styles.reqCard}>
-                        <View style={styles.reqRow}>
+                        <TouchableOpacity 
+                            style={styles.reqRow} 
+                            onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: item.id })}
+                            activeOpacity={0.7}
+                        >
                             <Avatar name={getAvatarName(item.patient)} size={56} />
                             <View style={styles.reqInfo}>
                                 <Text style={styles.reqName}>{getIdentityName(item.patient)}</Text>
@@ -619,12 +657,18 @@ export const SpecialistDashboardScreen = () => {
                                     <View style={styles.metaItem}><Clock size={14} color={theme.colors.textSecondary} weight="fill" /><Text style={styles.metaText}>{formatRelativeDay(item.scheduledAt || item.createdAt)}, {safeFormat(item.scheduledAt || item.createdAt, 'h:mm aa')}</Text></View>
                                 </View>
                             </View>
-                        </View>
+                        </TouchableOpacity>
                         <View style={styles.reqActions}>
-                            <TouchableOpacity style={styles.confirmBtn} onPress={() => confirmMutation.mutate(item.id)}><Text style={{ color: 'white', fontWeight: 'bold' }}>Confirm</Text></TouchableOpacity>
-                            <TouchableOpacity style={styles.reschedBtn} onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: item.id })}><Text style={{ color: '#C62828', fontWeight: 'bold' }}>Re-schedule</Text></TouchableOpacity>
-                        </View>
-                    </View>
+                            <TouchableOpacity 
+                               style={[styles.reqBtn, styles.declineBtn]} 
+                               onPress={() => Alert.alert('Decline Request', 'Are you sure you want to decline this request? The patient will be fully refunded.', [{ text: 'No' }, { text: 'Yes, Decline', onPress: () => declineMutation.mutate(item.id), style: 'destructive' }])}
+                            >
+                               <Text style={styles.declineBtnText}>Decline</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.confirmBtn} onPress={() => confirmMutation.mutate(item.id)}>
+                               <Text style={styles.confirmBtnText}>Confirm</Text>
+                            </TouchableOpacity>
+                        </View>                    </View>
                 ))}
             </View>
         )}
@@ -635,10 +679,14 @@ export const SpecialistDashboardScreen = () => {
                 <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Upcoming Appointments</Text><TouchableOpacity onPress={() => navigation.navigate('Appointments')}><Text style={styles.viewAll}>View All</Text></TouchableOpacity></View>
                 {upcoming.map((item) => (
                     <View key={item.id} style={styles.reqCard}>
-                        <View style={styles.reqRow}>
+                        <TouchableOpacity 
+                            style={styles.reqRow}
+                            onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: item.id })}
+                            activeOpacity={0.7}
+                        >
                             <Avatar name={getAvatarName(item.patient)} size={56} />
                             <View style={styles.reqInfo}><Text style={styles.reqName}>{getIdentityName(item.patient)}</Text><View style={styles.reqMetaRow}><View style={styles.metaItem}><VideoCamera size={14} color={theme.colors.textSecondary} weight="fill" /><Text style={styles.metaText}>{item.consultationType || 'Video Call'}</Text></View><View style={styles.metaItem}><Clock size={14} color={theme.colors.textSecondary} weight="fill" /><Text style={styles.metaText}>{formatRelativeDay(item.scheduledAt || item.createdAt)}, {safeFormat(item.scheduledAt || item.createdAt, 'h:mm aa')}</Text></View></View></View>
-                        </View>
+                        </TouchableOpacity>
                         <View style={styles.reqActions}>
                             <TouchableOpacity style={styles.upcReschedBtn} onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: item.id })}><Text style={{ color: 'white', fontWeight: 'bold' }}>Re-Schedule</Text></TouchableOpacity>
                             <TouchableOpacity style={styles.upcCancelBtn} onPress={() => Alert.alert('Cancel Appointment', 'Are you sure?', [{ text: 'No' }, { text: 'Yes', onPress: () => cancelMutation.mutate(item.id) }])}><Text style={styles.upcCancelText}>Cancel</Text></TouchableOpacity>

@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BloodRequest } from './entities/blood-request.entity';
 import { DonationMatch } from './entities/donation-match.entity';
 import { HospitalFeedback } from './entities/hospital-feedback.entity';
+import { DonorFeedback } from './entities/donor-feedback.entity';
 import { User } from '../users/entities/user.entity';
 import { DonationsService } from './donations.service';
 import { DonationsController } from './donations.controller';
@@ -15,7 +16,7 @@ import { DonationsScheduler } from './donations-scheduler.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([BloodRequest, DonationMatch, HospitalFeedback, User]),
+    TypeOrmModule.forFeature([BloodRequest, DonationMatch, HospitalFeedback, DonorFeedback, User]),
     ActivitiesModule,
     ConfigModule,
     AiModule,

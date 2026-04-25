@@ -375,7 +375,7 @@ export const WalletScreen = () => {
           <View>
             {txResponse?.items?.length > 0 ? (
               txResponse.items.slice(0, 5).map((tx: any) => {
-                const isCredit = tx.type === 'CREDIT' || tx.type === 'WALLET_TOPUP' || tx.type === 'TRANSFER_IN';
+                const isCredit = tx.type === 'CREDIT' || tx.type === 'WALLET_TOPUP' || tx.type === 'TRANSFER_IN' || tx.type === 'PLATFORM_FEE' || tx.type === 'CONSULTATION_PAYMENT';
                 return (
                   <GHPressable 
                     key={tx.id} 

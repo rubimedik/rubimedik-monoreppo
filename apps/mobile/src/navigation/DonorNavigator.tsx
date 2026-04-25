@@ -149,14 +149,6 @@ const TabNavigator = () => {
         }}
       />
       <Tab.Screen 
-        name="WalletTab" 
-        component={WalletScreen} 
-        options={{
-          tabBarLabel: 'Wallet',
-          tabBarIcon: ({ color, size }) => <WalletIcon color={color} size={size} weight="fill" />,
-        }}
-      />
-      <Tab.Screen 
         name="Profile" 
         component={ProfileScreen} 
         options={{

@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { donationService, Review, HospitalRating } from '../services/donationService';
 import { Avatar } from '../components/Avatar';
 import { BackButton } from '../components';
-import { Star } from 'phosphor-react-native';
+import { Star, CaretLeft } from 'phosphor-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { formatDistanceToNow } from 'date-fns';
 

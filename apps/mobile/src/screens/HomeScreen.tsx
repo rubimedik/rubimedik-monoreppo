@@ -44,10 +44,9 @@ import { Swipeable, Pressable as GHPressable } from 'react-native-gesture-handle
 
 const { width } = Dimensions.get('window');
 
-export const HomeScreen = () => {
+export const HomeScreen = ({ navigation }: { navigation: any }) => {
   const { theme, isDarkMode } = useAppTheme();
   const { user } = useAuthStore();
-  const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
 
   const [refreshing, setRefreshing] = useState(false);

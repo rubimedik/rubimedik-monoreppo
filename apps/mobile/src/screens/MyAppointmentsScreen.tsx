@@ -18,7 +18,7 @@ import { Badge } from '../components/Badge';
 import { Skeleton } from '../components/Skeleton';
 import { Avatar } from '../components/Avatar';
 import { CountdownTimer } from '../components/CountdownTimer';
-import { Calendar as CalendarIcon, Clock, CaretRight as CaretRightIcon, ChatTeardropDots, Drop, MagnifyingGlass, XCircle, CalendarPlus, CheckCircle, Star } from 'phosphor-react-native';
+import { Calendar as CalendarIcon, Clock, CaretRight as CaretRightIcon, CaretRight, ChatTeardropDots, Drop, MagnifyingGlass, XCircle, CalendarPlus, CheckCircle, Star } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
@@ -64,10 +64,15 @@ export const MyAppointmentsScreen = () => {
   });
 
   const filteredAppointments = useMemo(() => {
-    let filtered = appointments || [];
-    
-    // Filter by tab
-    filtered = filtered.filter((app: any) => {
+    // 1. Initial Sort by date (Newest First) - do this before filtering to be safe
+    let sorted = [...(appointments || [])].sort((a, b) => {
+        const dateA = new Date(a.scheduledAt || a.createdAt).getTime();
+        const dateB = new Date(b.scheduledAt || b.createdAt).getTime();
+        return dateB - dateA;
+    });
+
+    // 2. Filter by tab
+    let filtered = sorted.filter((app: any) => {
       if (isDonor) {
         if (activeTab === 'Declined' || activeTab === 'Completed') {
            const isDeclined = app.status === DonationStatus.DECLINED;
@@ -84,21 +89,39 @@ export const MyAppointmentsScreen = () => {
         if (isSpecialist) {
             if (activeTab === 'Requests') return app.status === 'UPCOMING';
             if (activeTab === 'Upcoming') return app.status === 'CONFIRMED' || app.status === 'PENDING';
-            if (activeTab === 'Pending Payout') return app.status === 'PENDING_PAYOUT';
-            if (activeTab === 'Completed' || activeTab === 'History') return app.status === 'COMPLETED';
+            
+            const isFinalized = (app.status === 'PENDING_PAYOUT' || app.status === 'ARCHIVED');
+            const isPaid = app.payoutStatus === 'PAID';
+            
+            if (activeTab === 'Pending Payout') {
+                return isFinalized && !isPaid;
+            }
+            if (activeTab === 'Completed' || activeTab === 'History') {
+                return app.status === 'COMPLETED' || (isFinalized && isPaid);
+            }
             if (activeTab === 'Declined') return app.status === 'CANCELLED' || app.status === 'DECLINED';
             return false;
         } else {
             // Patient view
             if (activeTab === 'Declined') return app.status === 'CANCELLED' || app.status === 'DECLINED';
             
+            const isHeld = app.payoutStatus === 'HELD';
+            const isFinalizedStatus = (app.status === 'PENDING_PAYOUT' || app.status === 'ARCHIVED');
+            
             // Pending Review for patient
-            if (activeTab === 'Review Needed') return app.status === 'PENDING_PAYOUT' && !app.patientFeedback;
+            if (activeTab === 'Review Needed') {
+                return (isFinalizedStatus || isHeld) && !app.patientFeedback;
+            }
             
-            // Completed
-            if (activeTab === 'Completed') return app.status === 'COMPLETED' || (app.status === 'PENDING_PAYOUT' && app.patientFeedback);
+            // Completed (Patient view)
+            if (activeTab === 'Completed') {
+                const isPaid = app.status === 'COMPLETED';
+                const hasFeedback = !!app.patientFeedback;
+                return isPaid || ((isFinalizedStatus || isHeld) && hasFeedback);
+            }
             
-            const isUpcoming = app.status === 'UPCOMING' || app.status === 'CONFIRMED' || app.status === 'PENDING';
+            // Upcoming (Patient view)
+            const isUpcoming = (app.status === 'UPCOMING' || app.status === 'CONFIRMED' || app.status === 'PENDING') && !isFinalizedStatus && !isHeld;
             
             if (activeTab === 'Upcoming') return isUpcoming;
             return false;
@@ -106,7 +129,7 @@ export const MyAppointmentsScreen = () => {
       }
     });
 
-    // Filter by search query
+    // 3. Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((app: any) => {
@@ -131,8 +154,9 @@ export const MyAppointmentsScreen = () => {
       backgroundColor: theme.colors.background,
     },
     header: {
-      padding: theme.spacing.xl, 
-      paddingBottom: theme.spacing.md,
+      paddingHorizontal: theme.spacing.xl, 
+      paddingTop: theme.spacing.lg,
+      paddingBottom: theme.spacing.sm,
     },
     title: {
       fontSize: 24,
@@ -145,7 +169,7 @@ export const MyAppointmentsScreen = () => {
       padding: 4,
       backgroundColor: theme.colors.surface,
       marginHorizontal: theme.spacing.xl,
-      marginBottom: theme.spacing.lg,
+      marginBottom: theme.spacing.md,
     },
     tab: {
       paddingVertical: 10,
@@ -170,7 +194,8 @@ export const MyAppointmentsScreen = () => {
       fontFamily: theme.typography.fontFamilyBold,
     },
     listContent: {
-      padding: theme.spacing.xl,
+      paddingHorizontal: theme.spacing.xl,
+      paddingTop: theme.spacing.xs,
       gap: theme.spacing.md,
       paddingBottom: Platform.OS === 'ios' ? 120 : 100,
     },
@@ -203,7 +228,9 @@ export const MyAppointmentsScreen = () => {
     cardFooter: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
+      alignItems: 'flex-end',
+      flexWrap: 'wrap',
+      gap: 12,
     },
     dateTimeRow: {
       gap: 4,
@@ -296,12 +323,40 @@ export const MyAppointmentsScreen = () => {
     const isRequest = item.status === 'UPCOMING' && isSpecialist;
     const isActionable = (item.status === 'UPCOMING' || item.status === 'CONFIRMED' || item.status === 'PENDING');
     const isPendingPayoutTab = activeTab === 'Pending Payout';
-
     // Normalize data (handle both Appointment and Consultation structures)
     const cons = item.consultation || item;
     const hasPatientFeedback = !!cons.patientFeedback;
     const payoutAmount = cons.specialistPayout || 0;
     const delayReason = cons.payoutNote;
+    const isHeld = cons.payoutStatus === 'HELD';
+    const isFinalized = (item.status === 'PENDING_PAYOUT' || item.status === 'ARCHIVED');
+    const isPaid = cons.payoutStatus === 'PAID';
+
+    // Patient-friendly label logic
+    let statusLabel = item.status;
+    let statusVariant = 'info';
+
+    if (isHeld) {
+        statusLabel = hasPatientFeedback ? 'Under Review' : 'Awaiting Review';
+        statusVariant = 'error';
+    } else if (isPaid || item.status === 'COMPLETED') {
+        statusLabel = 'Completed';
+        statusVariant = 'success';
+    } else if (isFinalized) {
+        if (!isSpecialist && !hasPatientFeedback) {
+            statusLabel = 'Action Needed';
+            statusVariant = 'warning';
+        } else {
+            statusLabel = isSpecialist ? 'Pending Payout' : 'Processing';
+            statusVariant = 'warning';
+        }
+    } else if (item.status === 'PENDING') {
+        statusVariant = 'warning';
+    } else if (item.status === 'CONFIRMED' || item.status === 'UPCOMING') {
+        statusVariant = isRequest ? 'warning' : 'info';
+    } else if (item.status === 'CANCELLED' || item.status === 'DECLINED') {
+        statusVariant = 'error';
+    }
 
     return (
       <Card 
@@ -317,8 +372,8 @@ export const MyAppointmentsScreen = () => {
             </Text>
           </View>
           <Badge 
-            label={isPendingPayoutTab ? (hasPatientFeedback ? 'In Grace Period' : 'Awaiting review') : (item.status === 'PENDING_PAYOUT' && !isSpecialist && !hasPatientFeedback) ? 'Action Needed' : item.status} 
-            variant={isPendingPayoutTab || (item.status === 'PENDING_PAYOUT' && !isSpecialist && !hasPatientFeedback) ? 'warning' : item.status === 'PENDING' ? 'warning' : (item.status === 'CONFIRMED' || item.status === 'UPCOMING') ? (isRequest ? 'warning' : 'info') : item.status === 'COMPLETED' ? 'success' : 'error'} 
+            label={statusLabel} 
+            variant={statusVariant as any} 
           />
         </View>
 
@@ -326,19 +381,39 @@ export const MyAppointmentsScreen = () => {
 
         <View style={styles.cardFooter}>
           <View style={styles.dateTimeRow}>
-            {isPendingPayoutTab ? (
+            {isHeld ? (
+                <View style={styles.infoItem}>
+                    <Text style={[styles.infoText, { color: theme.colors.error, fontFamily: theme.typography.fontFamilyBold }]}>
+                        Payout Flagged: Check Details
+                    </Text>
+                </View>
+            ) : isPendingPayoutTab ? (
                 <View style={{ gap: 4 }}>
                     <View style={styles.infoItem}>
                         <Text style={[styles.infoText, { color: theme.colors.success, fontFamily: theme.typography.fontFamilyBold }]}>
                             Expected Payout: ₦{Number(payoutAmount).toLocaleString()}
                         </Text>
                     </View>
-                    {cons.payoutReleasesAt && (
-                        <CountdownTimer 
-                          targetDate={cons.payoutReleasesAt} 
-                          prefix="Releases in: "
-                        />
-                    )}
+                    {isSpecialist && !cons.specialistFeedback ? (
+                        <View style={styles.infoItem}>
+                             <Text style={[styles.infoText, { color: theme.colors.error, fontSize: 12 }]}>
+                                Action Required: Submit Feedback
+                            </Text>
+                        </View>
+                    ) : (!!cons.payoutReleasesAt) ? (
+                        new Date(cons.payoutReleasesAt) > new Date() ? (
+                            <CountdownTimer 
+                              targetDate={cons.payoutReleasesAt} 
+                              prefix="Releases in: "
+                            />
+                        ) : (
+                            <View style={styles.infoItem}>
+                                <Text style={[styles.infoText, { color: theme.colors.textSecondary, fontSize: 12 }]}>
+                                    Status: Awaiting Verification
+                                </Text>
+                            </View>
+                        )
+                    ) : null}
                 </View>
             ) : (item.status === 'PENDING_PAYOUT' && !isSpecialist && !hasPatientFeedback) ? (
                 <View style={styles.infoItem}>
@@ -348,7 +423,7 @@ export const MyAppointmentsScreen = () => {
                     </Text>
                 </View>
             ) : (
-                <>
+                <View style={{ gap: 4 }}>
                     <View style={styles.infoItem}>
                         <CalendarIcon size={16} color={theme.colors.textSecondary} />
                         <Text style={styles.infoText}>{safeFormat(item.scheduledAt || item.createdAt, 'PP')}</Text>
@@ -357,7 +432,7 @@ export const MyAppointmentsScreen = () => {
                         <Clock size={16} color={theme.colors.textSecondary} />
                         <Text style={styles.infoText}>{safeFormat(item.scheduledAt || item.createdAt, 'p')}</Text>
                     </View>
-                </>
+                </View>
             )}
           </View>
 
@@ -373,15 +448,15 @@ export const MyAppointmentsScreen = () => {
               onPress={() => navigation.navigate(detailRoute, { appointmentId: item.id, consultationId: cons.id })}
             >
               <Text style={styles.detailsText}>{(item.status === 'PENDING_PAYOUT' && !isSpecialist && !hasPatientFeedback) ? 'Review' : 'Details'}</Text>
-              <CaretRightIcon size={14} color={theme.colors.white} />
+              <CaretRight size={14} color={theme.colors.white} />
             </TouchableOpacity>
           </View>
         </View>
 
-        {isActionable && !isPendingPayoutTab && (
+        {isActionable && !isPendingPayoutTab ? (
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
                 {isRequest ? (
-                    <>
+                    <View style={{ flexDirection: 'row', gap: 12, flex: 1 }}>
                         <TouchableOpacity 
                             style={{ flex: 1, height: 40, borderRadius: 10, backgroundColor: theme.colors.success + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6 }}
                             onPress={() => {
@@ -401,9 +476,9 @@ export const MyAppointmentsScreen = () => {
                             <XCircle size={16} color={theme.colors.error} weight="bold" />
                             <Text style={{ color: theme.colors.error, fontSize: 12, fontFamily: theme.typography.fontFamilyBold }}>Cancel</Text>
                         </TouchableOpacity>
-                    </>
+                    </View>
                 ) : (
-                    <>
+                    <View style={{ flexDirection: 'row', gap: 12, flex: 1 }}>
                         <TouchableOpacity 
                             style={{ flex: 1, height: 40, borderRadius: 10, backgroundColor: theme.colors.error + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6 }}
                             onPress={() => navigation.navigate(detailRoute, { appointmentId: item.id, consultationId: item.consultation?.id || item.id, action: 'cancel' })}
@@ -418,10 +493,10 @@ export const MyAppointmentsScreen = () => {
                             <CalendarPlus size={16} color={theme.colors.primary} weight="bold" />
                             <Text style={{ color: theme.colors.primary, fontSize: 12, fontFamily: theme.typography.fontFamilyBold }}>Reschedule</Text>
                         </TouchableOpacity>
-                    </>
+                    </View>
                 )}
             </View>
-        )}
+        ) : null}
       </Card>
     );
   };
@@ -462,7 +537,7 @@ export const MyAppointmentsScreen = () => {
           onPress={() => navigation.navigate('BloodRequestDetail', { requestId: item.request?.id })}
         >
           <Text style={styles.detailsText}>View Facility</Text>
-          <CaretRightIcon size={14} color={theme.colors.white} />
+          <CaretRight size={14} color={theme.colors.white} />
         </TouchableOpacity>
       </View>
     </Card>

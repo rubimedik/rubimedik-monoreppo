@@ -13,16 +13,20 @@ import { Card, BackButton } from '../components';
 import { CaretLeft, Bell, Envelope, DeviceMobile, Broadcast } from 'phosphor-react-native';
 import { useNavigation } from '@react-navigation/native';
 
+import { UserRole } from '@repo/shared';
+import { useAuthStore } from '../store/useAuthStore';
+
 export const NotificationSettingsScreen = () => {
   const { theme } = useAppTheme();
   const navigation = useNavigation<any>();
-  const [settings, setSettings] = useState({
-    pushAppointments: true,
-    pushChat: true,
-    pushPromotions: false,
-    emailReports: true,
-    emailSecurity: true,
-  });
+  const { settings, updateSetting, syncWithBackend } = useNotificationStore();
+  const { user } = useAuthStore();
+
+  const isSpecialist = user?.activeRole === UserRole.SPECIALIST;
+
+  React.useEffect(() => {
+    syncWithBackend();
+  }, []);
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -81,7 +85,7 @@ export const NotificationSettingsScreen = () => {
   }), [theme]);
 
   const toggleSetting = (key: keyof typeof settings) => {
-    setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+    updateSetting(key, !settings[key]);
   };
 
   return (
@@ -132,32 +136,36 @@ export const NotificationSettingsScreen = () => {
           </View>
         </Card>
 
-        <Text style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>Email Notifications</Text>
-        <Card style={styles.settingsCard} variant="outlined">
-          <View style={styles.settingItem}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.settingTitle}>Medical Reports</Text>
-              <Text style={styles.settingDesc}>Receive copies of your consultation summaries.</Text>
-            </View>
-            <Switch 
-              value={settings.emailReports} 
-              onValueChange={() => toggleSetting('emailReports')}
-              trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-            />
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.settingItem}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.settingTitle}>Security Alerts</Text>
-              <Text style={styles.settingDesc}>Login alerts and password change confirmations.</Text>
-            </View>
-            <Switch 
-              value={settings.emailSecurity} 
-              onValueChange={() => toggleSetting('emailSecurity')}
-              trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-            />
-          </View>
-        </Card>
+        {!isSpecialist && (
+          <>
+            <Text style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>Email Notifications</Text>
+            <Card style={styles.settingsCard} variant="outlined">
+              <View style={styles.settingItem}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingTitle}>Medical Reports</Text>
+                  <Text style={styles.settingDesc}>Receive copies of your consultation summaries.</Text>
+                </View>
+                <Switch 
+                  value={settings.emailReports} 
+                  onValueChange={() => toggleSetting('emailReports')}
+                  trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                />
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.settingItem}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingTitle}>Security Alerts</Text>
+                  <Text style={styles.settingDesc}>Login alerts and password change confirmations.</Text>
+                </View>
+                <Switch 
+                  value={settings.emailSecurity} 
+                  onValueChange={() => toggleSetting('emailSecurity')}
+                  trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                />
+              </View>
+            </Card>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

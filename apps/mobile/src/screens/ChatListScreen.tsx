@@ -259,7 +259,7 @@ export const ChatListScreen = () => {
             <MagnifyingGlass size={20} color={theme.colors.textSecondary} />
             <TextInput 
                 style={styles.searchInput}
-                placeholder="Ask Meta AI or Search"
+                placeholder="Search"
                 placeholderTextColor={theme.colors.textSecondary}
                 value={searchQuery}
                 onChangeText={setSearchQuery}

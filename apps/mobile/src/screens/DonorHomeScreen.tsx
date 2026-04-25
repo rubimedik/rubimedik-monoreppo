@@ -46,11 +46,13 @@ import { Swipeable, Pressable as GHPressable } from 'react-native-gesture-handle
 
 const { width } = Dimensions.get('window');
 
-export const DonorHomeScreen = () => {
+export const DonorHomeScreen = ({ navigation }: { navigation: any }) => {
   const { theme, isDarkMode } = useAppTheme();
   const { user } = useAuthStore();
-  const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
+
+  const [isHealthAlertCollapsed, setIsHealthAlertCollapsed] = useState(false);
+  const [isRarityCollapsed, setIsRarityCollapsed] = useState(false);
 
   // Fetch donor profile for blood type
   const { data: profile } = useQuery({
@@ -584,10 +586,18 @@ export const DonorHomeScreen = () => {
   // Fetch donor eligibility
   const { data: eligibility, isLoading: isEligibilityLoading } = useQuery<DonorEligibility>({
     queryKey: ['donor-eligibility'],
-    queryFn: async () => {
-      return donationService.getEligibility();
-    },
+    queryFn: () => donationService.getEligibility(),
   });
+
+  const { data: pendingReviews } = useQuery({
+    queryKey: ['pending-reviews'],
+    queryFn: async () => {
+        const res = await api.get('/donations/pending-reviews?role=DONOR');
+        return res.data;
+    }
+  });
+
+  const hasPendingReview = pendingReviews && pendingReviews.length > 0;
 
   // Fetch donor insights
   const { data: insights, isLoading: isInsightsLoading } = useQuery({
@@ -656,8 +666,9 @@ export const DonorHomeScreen = () => {
   const unitCount = unitsDonated > 0 ? unitsDonated : donationCount;
   const lastDonationDate = donorStats?.lastDonationDate;
   const livesSaved = calculatedLivesSaved;
-  const nextMilestone = Math.ceil((donationCount + 1) / 5) * 5;
-  const progressToNext = ((donationCount % 5) / 5) * 100;
+  const customGoal = profile?.donationGoal || 5;
+  const nextMilestone = Math.ceil((donationCount + 1) / customGoal) * customGoal;
+  const progressToNext = ((donationCount % customGoal) / customGoal) * 100;
 
   // Cancel appointment mutation
   const cancelMutation = useMutation({
@@ -802,13 +813,19 @@ export const DonorHomeScreen = () => {
 
         {/* Quick Actions */}
         <View style={styles.quickActionsRow}>
-          <Card style={styles.quickActionCard} variant="outlined" onPress={() => navigation.navigate('BloodRequestsNearby')}>
-            <View style={[styles.actionIconContainer, { backgroundColor: theme.colors.error + '15' }]}>
-              <Drop color={theme.colors.error} size={22} weight="fill" />
-            </View>
-            <Text style={styles.actionTitle}>Donate Now</Text>
-            <Text style={styles.actionDesc}>See blood requests{'\n'}around you</Text>
-          </Card>
+           <Card 
+             style={styles.quickActionCard} 
+             variant="outlined" 
+             onPress={() => hasPendingReview ? navigation.navigate('Donations') : navigation.navigate('BloodRequestsNearby')}
+           >
+             <View style={[styles.actionIconContainer, { backgroundColor: hasPendingReview ? theme.colors.warning + '15' : theme.colors.error + '15' }]}>
+               {hasPendingReview ? <ChatTeardropDots color={theme.colors.warning} size={22} weight="fill" /> : <Drop color={theme.colors.error} size={22} weight="fill" />}
+             </View>
+             <Text style={styles.actionTitle}>{hasPendingReview ? 'Pending Review' : 'Donate Now'}</Text>
+             <Text style={[styles.actionDesc, hasPendingReview && { color: theme.colors.warning, fontFamily: theme.typography.fontFamilyBold }]}>
+                {hasPendingReview ? 'Feedback Required' : 'See blood requests\naround you'}
+             </Text>
+           </Card>
           <Card style={styles.quickActionCard} variant="outlined" onPress={() => navigation.navigate('Donations')}>
             <View style={[styles.actionIconContainer, { backgroundColor: isEligibilityLoading ? theme.colors.border + '15' : (eligibility?.isEligible ? theme.colors.success + '15' : theme.colors.error + '15') }]}>
               {isEligibilityLoading ? (
@@ -836,26 +853,50 @@ export const DonorHomeScreen = () => {
         {insights && (
           <View style={{ marginBottom: 24 }}>
              {insights.burnoutWarning && (
-                <Card style={{ marginBottom: 12, backgroundColor: theme.colors.warning + '15', borderColor: theme.colors.warning }} variant="outlined">
-                    <View style={{ flexDirection: 'row', gap: 12, padding: 4 }}>
-                        <Warning color={theme.colors.warning} size={24} weight="fill" style={{ marginTop: 2 }} />
+                <Card style={{ marginBottom: 12, backgroundColor: theme.colors.warning + '15', borderColor: theme.colors.warning, padding: 0 }} variant="outlined">
+                    <TouchableOpacity 
+                        style={{ flexDirection: 'row', gap: 12, padding: 12, alignItems: 'center' }}
+                        onPress={() => setIsHealthAlertCollapsed(!isHealthAlertCollapsed)}
+                    >
+                        <Warning color={theme.colors.warning} size={24} weight="fill" />
                         <View style={{ flex: 1 }}>
-                            <Text style={{ color: theme.colors.warning, fontFamily: theme.typography.fontFamilyBold, fontSize: 14, marginBottom: 4 }}>Health Alert</Text>
+                            <Text style={{ color: theme.colors.warning, fontFamily: theme.typography.fontFamilyBold, fontSize: 14 }}>Health Alert</Text>
+                            {!isHealthAlertCollapsed && (
+                                <Text style={{ color: theme.colors.textSecondary, fontSize: 11 }}>Tap for safety advice</Text>
+                            )}
+                        </View>
+                        <ArrowRight size={18} color={theme.colors.warning} style={{ transform: [{ rotate: isHealthAlertCollapsed ? '90deg' : '0deg' }] }} />
+                    </TouchableOpacity>
+                    
+                    {isHealthAlertCollapsed && (
+                        <View style={{ padding: 12, paddingTop: 0 }}>
                             <Text style={{ color: theme.colors.textPrimary, fontSize: 13, lineHeight: 20 }}>{insights.burnoutWarning}</Text>
                         </View>
-                    </View>
+                    )}
                 </Card>
              )}
              
              {insights.rarityMessage && (
-                 <Card style={{ backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '30', marginBottom: 12 }} variant="outlined">
-                     <View style={{ flexDirection: 'row', gap: 12, padding: 4, alignItems: 'center' }}>
+                 <Card style={{ backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '30', marginBottom: 12, padding: 0 }} variant="outlined">
+                     <TouchableOpacity 
+                        style={{ flexDirection: 'row', gap: 12, padding: 12, alignItems: 'center' }}
+                        onPress={() => setIsRarityCollapsed(!isRarityCollapsed)}
+                     >
                          <Drop color={theme.colors.primary} size={24} weight="fill" />
                          <View style={{ flex: 1 }}>
-                             <Text style={{ color: theme.colors.primary, fontFamily: theme.typography.fontFamilyBold, fontSize: 13, marginBottom: 2 }}>Your Blood is Rare</Text>
-                             <Text style={{ color: theme.colors.textSecondary, fontSize: 12, lineHeight: 18 }}>{insights.rarityMessage}</Text>
+                             <Text style={{ color: theme.colors.primary, fontFamily: theme.typography.fontFamilyBold, fontSize: 13 }}>Your Blood is Rare</Text>
+                             {!isRarityCollapsed && (
+                                <Text style={{ color: theme.colors.textSecondary, fontSize: 11 }}>Learn about your impact</Text>
+                             )}
                          </View>
-                     </View>
+                         <ArrowRight size={18} color={theme.colors.primary} style={{ transform: [{ rotate: isRarityCollapsed ? '90deg' : '0deg' }] }} />
+                     </TouchableOpacity>
+
+                     {isRarityCollapsed && (
+                         <View style={{ padding: 12, paddingTop: 0 }}>
+                            <Text style={{ color: theme.colors.textSecondary, fontSize: 12, lineHeight: 18 }}>{insights.rarityMessage}</Text>
+                         </View>
+                     )}
                  </Card>
              )}
           </View>
@@ -1009,13 +1050,12 @@ export const DonorHomeScreen = () => {
                   </View>
                   <View style={{ height: 12 }} />
                   <TouchableOpacity
-                    style={styles.donateNowBtn}
-                    onPress={() => navigation.navigate('BloodRequestDetail', { requestId: request.id })}
+                    style={[styles.donateNowBtn, hasPendingReview && { backgroundColor: theme.colors.warning }]}
+                    onPress={() => hasPendingReview ? navigation.navigate('Donations') : navigation.navigate('BloodRequestDetail', { requestId: request.id })}
                   >
-                    <Drop color="white" size={18} weight="fill" />
-                    <Text style={styles.donateNowText}>Donate Now</Text>
-                  </TouchableOpacity>
-                </Card>
+                    {hasPendingReview ? <ChatTeardropDots color="white" size={18} weight="fill" /> : <Drop color="white" size={18} weight="fill" />}
+                    <Text style={styles.donateNowText}>{hasPendingReview ? 'Feedback Required' : 'Donate Now'}</Text>
+                  </TouchableOpacity>                </Card>
               ))
             ) : (
               <Card style={styles.bloodRequestCard} variant="outlined">

@@ -74,6 +74,20 @@ export class EmailService {
       <div style="font-family: sans-serif; padding: 20px;">
         <p>Hello <strong>${name}</strong>,</p>
         <p>Your booking with <strong>${specialistName}</strong> on ${date.toLocaleString()} is confirmed.</p>
+        <p>Please log in to the Rubimedik app for details.</p>
+      </div>
+    `;
+    return this.sendEmail(to, subject, html);
+  }
+
+  async sendSpecialistBookingAlert(to: string, patientName: string, date: Date, specialistName?: string) {
+    const subject = 'New Consultation Booking Received';
+    const name = specialistName || this.extractName(to);
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <p>Hello <strong>${name}</strong>,</p>
+        <p>You have received a new consultation booking from <strong>${patientName}</strong> for ${date.toLocaleString()}.</p>
+        <p>Please log in to your Rubimedik dashboard to view the details and confirm the appointment.</p>
       </div>
     `;
     return this.sendEmail(to, subject, html);
@@ -107,15 +121,15 @@ export class EmailService {
     const subject = 'Your consultation feedback';
     const userName = name || this.extractName(to);
     const html = `
-      <div style="font-family: sans-serif; padding: 20px;">
+      <div style="font-family: sans-serif; padding: 20px; line-height: 1.6;">
         <p>Hello <strong>${userName}</strong>,</p>
-        <p>Your consultation with <strong>${consultantName}</strong> is complete. We would love to hear your feedback!</p>
-        <p><a href="${this.configService.get('APP_URL')}/feedback/${consultationId}">Click here to rate your experience</a></p>
+        <p>Your consultation with <strong>${consultantName}</strong> is complete.</p>
+        <p>We would love to hear your feedback! Please log in to your <strong>Rubimedik app</strong>, go to <strong>My Appointments</strong>, and select this session to rate your experience and help us release the payment to your specialist.</p>
+        <p>Thank you for choosing Rubimedik.</p>
       </div>
     `;
     return this.sendEmail(to, subject, html);
   }
-
   async sendCancellationNotification(to: string, title: string, reason: string, name?: string) {
     const subject = `Consultation Cancelled: ${title}`;
     const userName = name || this.extractName(to);

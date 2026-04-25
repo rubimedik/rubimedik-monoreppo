@@ -6,9 +6,15 @@ import { UserRole } from '@repo/shared';
 interface User {
   id: string;
   email: string;
+  fullName?: string;
+  phoneNumber?: string;
+  bloodGroup?: string;
+  genotype?: string;
+  avatarUrl?: string;
   roles: UserRole[];
   activeRole: UserRole;
   referralCode: string;
+  isTwoFactorEnabled?: boolean;
   specialistProfile?: any;
   hospitalProfile?: any;
 }

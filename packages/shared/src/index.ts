@@ -45,6 +45,7 @@ export enum DonationStatus {
   DONATED = 'DONATED',
   VERIFIED = 'VERIFIED',
   COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
 }
 
 export enum ReferralStatus {
@@ -81,6 +82,7 @@ export enum PayoutStatus {
   PAID = 'PAID',
   HELD = 'HELD',
   CANCELLED = 'CANCELLED',
+  REFUNDED = 'REFUNDED',
 }
 
 export enum MessageType {

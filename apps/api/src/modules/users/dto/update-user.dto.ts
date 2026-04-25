@@ -75,4 +75,24 @@ export class UpdateUserDto {
   @ApiPropertyOptional()
   @IsOptional()
   isVerified?: boolean;
+
+  @ApiPropertyOptional({ example: 10 })
+  @IsOptional()
+  @IsNumber()
+  donationGoal?: number;
+
+  @IsOptional()
+  pushAppointments?: boolean;
+
+  @IsOptional()
+  pushChat?: boolean;
+
+  @IsOptional()
+  pushPromotions?: boolean;
+
+  @IsOptional()
+  emailReports?: boolean;
+
+  @IsOptional()
+  emailSecurity?: boolean;
 }

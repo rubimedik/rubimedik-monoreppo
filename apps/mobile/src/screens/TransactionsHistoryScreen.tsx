@@ -188,7 +188,7 @@ export const TransactionsHistoryScreen = () => {
   };
 
   const renderItem = ({ item }: { item: any }) => {
-    const isCredit = item.type === 'CREDIT' || item.type === 'WALLET_TOPUP' || item.type === 'TRANSFER_IN';
+    const isCredit = item.type === 'CREDIT' || item.type === 'WALLET_TOPUP' || item.type === 'TRANSFER_IN' || item.type === 'PLATFORM_FEE' || item.type === 'CONSULTATION_PAYMENT';
     return (
       <TouchableOpacity 
         style={styles.txItem}

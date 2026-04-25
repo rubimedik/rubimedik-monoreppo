@@ -18,17 +18,17 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Calendar, CaretRight, Drop, Clock, CheckCircle, WarningCircle, XCircle, User as UserIcon } from 'phosphor-react-native';
-import { format } from 'date-fns';
 import { safeFormat } from '../utils/dateUtils';
 import { Card, Badge, Avatar, PrimaryButton, SearchInput, BackButton } from '../components';
 import { DonationStatus } from '@repo/shared';
+import { useRoute } from '@react-navigation/native';
 
-import { Swipeable, Pressable as GHPressable } from 'react-native-gesture-handler';
-
-export const HospitalDonationMatchesScreen = () => {
+export const HospitalDonationMatchesScreen = ({ navigation }: { navigation: any }) => {
   const { theme, isDarkMode } = useAppTheme();
-  const navigation = useNavigation<any>();
-  const [activeTab, setActiveTab] = useState<'PENDING' | 'ACCEPTED' | 'COMPLETED' | 'DECLINED'>('PENDING');
+  const route = useRoute<any>();
+  const initialTab = route.params?.initialTab || 'PENDING';
+  
+  const [activeTab, setActiveTab] = useState<'PENDING' | 'ACCEPTED' | 'COMPLETED' | 'DECLINED'>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDeclineModalVisible, setIsDeclineModalVisible] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
@@ -41,6 +41,14 @@ export const HospitalDonationMatchesScreen = () => {
       const res = await api.get('/donations/hospital/matches');
       return res.data;
     },
+  });
+
+  const { data: pendingReviews } = useQuery({
+    queryKey: ['pending-reviews-hospital'],
+    queryFn: async () => {
+      const res = await api.get('/donations/pending-reviews?role=HOSPITAL');
+      return res.data;
+    }
   });
 
   const updateStatusMutation = useMutation({
@@ -60,24 +68,9 @@ export const HospitalDonationMatchesScreen = () => {
     }
   });
 
-  const completeDonationMutation = useMutation({
-    mutationFn: async (matchId: string) => {
-      const res = await api.post(`/donations/complete/${matchId}`);
-      return res.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hospital-matches'] });
-      queryClient.invalidateQueries({ queryKey: ['hospital-inventory'] });
-      Alert.alert('Success', 'Donation marked as completed and inventory updated.');
-    },
-    onError: (err: any) => {
-      Alert.alert('Error', err.response?.data?.message || 'Failed to complete donation');
-    }
-  });
-
   const filteredMatches = useMemo(() => {
     if (!matches) return [];
-    let filtered = matches;
+    let filtered = [...matches];
     
     if (activeTab === 'PENDING') {
       filtered = filtered.filter((m: any) => m.status === DonationStatus.PENDING);
@@ -95,147 +88,152 @@ export const HospitalDonationMatchesScreen = () => {
         const donorName = m.isAnonymous ? 'anonymous donor' : (m.donor?.fullName?.toLowerCase() || '');
         const donorEmail = m.isAnonymous ? '' : (m.donor?.email?.toLowerCase() || '');
         const bloodType = (m.donor?.bloodType || m.request?.bloodType || '').toLowerCase();
-        const genotype = (m.donor?.genotype || '').toLowerCase();
         
         return donorName.includes(query) || 
                donorEmail.includes(query) || 
-               bloodType.includes(query) || 
-               genotype.includes(query);
+               bloodType.includes(query);
       });
     }
 
     return filtered;
   }, [matches, activeTab, searchQuery]);
 
-const handleDecline = (matchId: string) => {
-  setSelectedMatchId(matchId);
-  setDeclineReason('');
-  setIsDeclineModalVisible(true);
-};
+  const handleDecline = (matchId: string) => {
+    setSelectedMatchId(matchId);
+    setDeclineReason('');
+    setIsDeclineModalVisible(true);
+  };
 
-const submitDecline = () => {
-  if (!declineReason.trim()) {
-    Alert.alert('Error', 'Please provide a reason for declining');
-    return;
-  }
-  if (selectedMatchId) {
-    updateStatusMutation.mutate({ 
-      matchId: selectedMatchId, 
-      status: DonationStatus.DECLINED,
-      declineReason: declineReason.trim()
-    });
-  }
-};
+  const submitDecline = () => {
+    if (!declineReason.trim()) {
+      Alert.alert('Error', 'Please provide a reason for declining');
+      return;
+    }
+    if (selectedMatchId) {
+      updateStatusMutation.mutate({ 
+        matchId: selectedMatchId, 
+        status: DonationStatus.DECLINED,
+        declineReason: declineReason.trim()
+      });
+    }
+  };
 
-const renderMatchItem = ({ item }: { item: any }) => (
-  <Pressable onPress={() => navigation.navigate('HospitalDonationDetail', { matchId: item.id })}>
-    <Card style={styles.matchCard} variant="outlined">
-      <View style={styles.cardHeader}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Avatar 
-            name={item.isAnonymous ? 'A' : (item.donor?.fullName || item.donor?.email)} 
-            size={48} 
-          />
-          <View>
-            <Text style={styles.donorName}>
-              {item.isAnonymous ? 'Anonymous Donor' : (item.donor?.fullName || 'Anonymous Donor')}
-            </Text>
-            {!item.isAnonymous && (
-              <Text style={styles.donorEmail}>{item.donor?.email}</Text>
-            )}
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.donorInfoSection}>
-        <View style={styles.infoGrid}>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Blood Type</Text>
-            <Text style={styles.infoValue}>{item.donor?.bloodType || item.request?.bloodType || 'N/A'}</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Genotype</Text>
-            <Text style={styles.infoValue}>{item.donor?.genotype || 'N/A'}</Text>
-          </View>
-        </View>
-        
-        <View style={styles.infoGrid}>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Health Status</Text>
-            <Badge 
-              label={item.donor?.healthCondition || 'Healthy'} 
-              variant={item.donor?.healthCondition === 'healthy' ? 'success' : 'warning'} 
-              size="small"
+  const renderMatchItem = ({ item }: { item: any }) => (
+    <Pressable onPress={() => navigation.navigate('HospitalDonationDetail', { matchId: item.id })}>
+      <Card style={styles.matchCard} variant="outlined">
+        <View style={styles.cardHeader}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Avatar 
+              name={item.isAnonymous ? 'A' : (item.donor?.fullName || item.donor?.email)} 
+              size={48} 
             />
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Last Donation</Text>
-            <Text style={styles.infoValue}>
-              {item.donor?.lastDonationDate 
-                ? safeFormat(item.donor.lastDonationDate, 'MMM d, yyyy') 
-                : 'First time'}
-            </Text>
+            <View>
+              <Text style={styles.donorName}>
+                {item.isAnonymous ? 'Anonymous Donor' : (item.donor?.fullName || 'Anonymous Donor')}
+              </Text>
+              {!item.isAnonymous && (
+                <Text style={styles.donorEmail}>{item.donor?.email}</Text>
+              )}
+            </View>
           </View>
         </View>
 
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Booked For</Text>
-          <Text style={styles.infoValue}>
-            {item.request?.bloodType} - {item.request?.units || 1} unit(s)
-          </Text>
+        <View style={styles.donorInfoSection}>
+          <View style={styles.infoGrid}>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Blood Type</Text>
+              <Text style={styles.infoValue}>{item.donor?.bloodType || item.request?.bloodType || 'N/A'}</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Check-in ID</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.primary }]}>
+                {item.status === DonationStatus.PENDING ? 'Awaiting' : (item.checkInToken || 'Awaiting')}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.infoGrid}>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Donor ID</Text>
+              <Text style={styles.infoValue}>{item.isAnonymous ? (item.anonymousId || 'ANON') : 'Registered'}</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Last Donation</Text>
+              <Text style={styles.infoValue}>
+                {item.donor?.lastDonationDate 
+                  ? safeFormat(item.donor.lastDonationDate, 'MMM d, yyyy') 
+                  : 'First time'}
+              </Text>
+            </View>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.cardBody}>
-        <View style={styles.infoRow}>
-          <Clock size={16} color={theme.colors.textSecondary} />
-          <Text style={styles.infoText}>Booked on {safeFormat(item.createdAt, 'PPP p')}</Text>
+        <View style={styles.cardBody}>
+          <View style={styles.infoRow}>
+            <Clock size={16} color={theme.colors.textSecondary} />
+            <Text style={styles.infoText}>Booked for {safeFormat(item.scheduledDate || item.createdAt, 'PPP p')}</Text>
+          </View>
+
+          {item.status === DonationStatus.DECLINED && item.declineReason && (
+            <View style={styles.declineReasonContainer}>
+              <WarningCircle size={16} color={theme.colors.error} />
+              <Text style={styles.declineReasonText}>Reason: {item.declineReason}</Text>
+            </View>
+          )}
+          
+          {activeTab === 'PENDING' && (
+            <View style={styles.actionRow}>
+              <TouchableOpacity 
+                style={[styles.actionBtn, styles.declineBtn]}
+                onPress={() => handleDecline(item.id)}
+                disabled={updateStatusMutation.isPending}
+              >
+                <Text style={styles.declineText}>Decline</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionBtn, styles.acceptBtn]}
+                onPress={() => updateStatusMutation.mutate({ matchId: item.id, status: DonationStatus.ACCEPTED })}
+                disabled={updateStatusMutation.isPending}
+              >
+                <Text style={styles.acceptText}>Accept</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {activeTab === 'ACCEPTED' && (
+            <View style={{ gap: 12 }}>
+              <PrimaryButton 
+                label="Confirm Donor Arrival" 
+                onPress={() => navigation.navigate('RecordDonation', { matchId: item.id })}
+              />
+              <TouchableOpacity 
+                style={[styles.actionBtn, styles.declineBtn]}
+                onPress={() => handleDecline(item.id)}
+              >
+                <Text style={styles.declineText}>Cancel Booking</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {[DonationStatus.COMPLETED, DonationStatus.VERIFIED, DonationStatus.DONATED].includes(item.status) && (
+            <View style={{ gap: 12 }}>
+                {pendingReviews?.some((p: any) => p.id === item.id) ? (
+                    <PrimaryButton 
+                        label="Review Donor" 
+                        onPress={() => navigation.navigate('ReviewForm', { matchId: item.id, donorId: item.donor?.id, role: 'HOSPITAL' })}
+                    />
+                ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center', padding: 8 }}>
+                        <CheckCircle size={20} color={theme.colors.success} weight="fill" />
+                        <Text style={{ color: theme.colors.textSecondary, fontFamily: theme.typography.fontFamilyMedium }}>Feedback Provided</Text>
+                    </View>
+                )}
+            </View>
+          )}
         </View>
-
-        {item.status === DonationStatus.DECLINED && item.declineReason && (
-          <View style={styles.declineReasonContainer}>
-            <WarningCircle size={16} color={theme.colors.error} />
-            <Text style={styles.declineReasonText}>Reason: {item.declineReason}</Text>
-          </View>
-        )}
-        
-        {activeTab === 'PENDING' && (
-          <View style={styles.actionRow}>
-            <TouchableOpacity 
-              style={[styles.actionBtn, styles.declineBtn]}
-              onPress={() => handleDecline(item.id)}
-              disabled={updateStatusMutation.isPending}
-            >
-              <Text style={styles.declineText}>Decline</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.actionBtn, styles.acceptBtn]}
-              onPress={() => updateStatusMutation.mutate({ matchId: item.id, status: DonationStatus.ACCEPTED })}
-              disabled={updateStatusMutation.isPending}
-            >
-              <Text style={styles.acceptText}>Accept</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {activeTab === 'ACCEPTED' && (
-          <View style={{ gap: 12 }}>
-            <PrimaryButton 
-              label="Record Donation" 
-              onPress={() => navigation.navigate('RecordDonation', { matchId: item.id })}
-            />
-            <TouchableOpacity 
-              style={[styles.actionBtn, styles.declineBtn]}
-              onPress={() => handleDecline(item.id)}
-            >
-              <Text style={styles.declineText}>Cancel Booking</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-    </Card>
-  </Pressable>
-);
+      </Card>
+    </Pressable>
+  );
 
   const styles = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.colors.background },
@@ -263,18 +261,18 @@ const renderMatchItem = ({ item }: { item: any }) => (
       flexDirection: 'row', 
       alignItems: 'center', 
       gap: 8, 
-      backgroundColor: theme.colors.lightRedTint, 
+      backgroundColor: theme.colors.error + '10', 
       padding: 10, 
       borderRadius: 8,
       marginBottom: 12,
       borderWidth: 1,
-      borderColor: 'rgba(239, 68, 68, 0.2)'
+      borderColor: theme.colors.error + '20'
     },
     declineReasonText: { fontSize: 13, color: theme.colors.error, fontFamily: theme.typography.fontFamilyMedium, flex: 1 },
     actionRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
     actionBtn: { flex: 1, height: 44, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
     acceptBtn: { backgroundColor: theme.colors.success },
-    declineBtn: { backgroundColor: theme.colors.lightRedTint },
+    declineBtn: { backgroundColor: theme.colors.error + '10' },
     acceptText: { color: 'white', fontFamily: theme.typography.fontFamilyBold },
     declineText: { color: theme.colors.error, fontFamily: theme.typography.fontFamilyBold },
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100, gap: 16 },

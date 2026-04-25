@@ -39,16 +39,26 @@ export class ChatController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Version('1')
+  @Get('rooms/:id/token')
+  @ApiOperation({ summary: 'Get Agora video token for a chat room' })
+  getToken(@Request() req, @Param('id') id: string) {
+    return this.chatService.getAgoraToken(id, req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Version('1')
   @Get('rooms/:id/messages')
   @ApiOperation({ summary: 'Get messages in a room (paginated, 90-day retention)' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   getMessages(
+    @Request() req,
     @Param('id') id: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.chatService.getMessages(id, page ? Number(page) : 1, limit ? Number(limit) : 50);
+    return this.chatService.getMessages(id, page ? Number(page) : 1, limit ? Number(limit) : 50, req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)

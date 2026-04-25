@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { CaretLeft, VideoCamera, ChatCircleDots, Calendar as CalendarIcon, Clock, Star, X, CheckCircle, FileText, DownloadSimple, Prescription as PrescriptionIcon, XCircle, CalendarPlus } from 'phosphor-react-native';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
 import { generateInvoiceHtml } from '../utils/invoiceTemplate';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -18,10 +20,8 @@ const YES_NO = [
     { label: 'No', value: 'No' }
 ];
 
-export const ConsultationDetailScreen = () => {
+export const ConsultationDetailScreen = ({ navigation, route }: { navigation: any, route: any }) => {
   const { theme, isDarkMode } = useAppTheme();
-  const navigation = useNavigation<any>();
-  const route = useRoute();
   const { consultationId, action } = route.params as any || {};
   const queryClient = useQueryClient();
 
@@ -40,6 +40,7 @@ export const ConsultationDetailScreen = () => {
   const [hospitalName, setHospitalName] = useState('');
   const [referredToSpecialist, setReferredToSpecialist] = useState('');
   const [specialistName, setSpecialistName] = useState('');
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
 
   const { data: consultation, isLoading } = useQuery({
     queryKey: ['consultation-details', consultationId],
@@ -145,16 +146,63 @@ export const ConsultationDetailScreen = () => {
 
   if (!styles || !styles.container) return null;
 
+  const isHeld = consultation?.payoutStatus === 'HELD';
   const isCompleted = consultation?.status === 'COMPLETED';
-  const isPendingPayout = consultation?.status === 'PENDING_PAYOUT';
+  const isPendingPayout = consultation?.status === 'PENDING_PAYOUT' || (consultation?.status === 'ARCHIVED' && consultation?.payoutStatus !== 'PAID');
   const isUpcoming = consultation?.status === 'UPCOMING' || consultation?.status === 'CONFIRMED';
   const hasFeedback = !!consultation?.patientFeedback;
 
-  const handleJoinMeeting = () => {
-    if (consultation?.meetingLink) {
-        Linking.openURL(consultation.meetingLink).catch(() => Alert.alert('Error', 'Could not open link.'));
-    } else {
-        Alert.alert('Meeting Info', 'The specialist has not provided a link yet.');
+  const handleJoinMeeting = async () => {
+    // Check if consultation is within 10 minutes
+    if (consultation?.scheduledAt) {
+        const now = new Date();
+        const startTime = new Date(consultation.scheduledAt);
+        const tenMinsBefore = new Date(startTime.getTime() - 10 * 60 * 1000);
+        
+        if (now < tenMinsBefore) {
+            Alert.alert('Too Early', 'The video call will be available 10 minutes before your scheduled appointment.');
+            return;
+        }
+    }
+
+    try {
+        // Show loading or alert if needed
+        const response = await api.get(`/consultations/${consultation.id}/token`);
+        const { token, channelName, appId } = response.data;
+
+        navigation.navigate('AgoraCall', { 
+            channelName, 
+            consultationId: consultation.id,
+            token,
+            appId
+        });
+    } catch (error) {
+        console.error('Error fetching Agora token:', error);
+        Alert.alert('Connection Error', 'Could not secure a video connection. Please try again.');
+    }
+  };
+
+  const handleDownloadFile = async (url: string, title: string) => {
+    try {
+        const fileExt = url.split('.').pop()?.split('?')[0] || 'pdf';
+        const fileName = `${title.replace(/\s+/g, '_')}_${consultationId}.${fileExt}`;
+        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+        Alert.alert('Downloading', 'Preparing your document...');
+        
+        const downloadRes = await FileSystem.downloadAsync(url, fileUri);
+        
+        if (downloadRes.status === 200) {
+            await Sharing.shareAsync(downloadRes.uri, {
+                mimeType: downloadRes.headers['content-type'] || 'application/pdf',
+                dialogTitle: `Download ${title}`
+            });
+        } else {
+            throw new Error('Download failed');
+        }
+    } catch (e) {
+        console.error('File download error:', e);
+        Alert.alert('Error', 'Could not download the document. Please try again.');
     }
   };
 
@@ -163,7 +211,7 @@ export const ConsultationDetailScreen = () => {
         Alert.alert('Not Available', `The ${title.toLowerCase()} has not been uploaded yet.`);
         return;
     }
-    Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open document.'));
+    handleDownloadFile(url, title);
   };
 
   const handlePrintInvoice = async () => {
@@ -205,7 +253,10 @@ export const ConsultationDetailScreen = () => {
           <Avatar name={avatarName} size={64} />
           <View style={{ flex: 1 }}>
             <Text style={styles.doctorName}>{displaySpecialistName}</Text>
-            <Badge label={consultation?.status} variant={isCompleted ? 'success' : isPendingPayout ? 'warning' : 'info'} />
+            <Badge 
+                label={isCompleted ? 'Completed' : (isHeld && !hasFeedback) ? 'Awaiting Review' : isHeld ? 'Under Review' : isPendingPayout ? 'Pending Payout' : consultation?.status} 
+                variant={isCompleted ? 'success' : (isPendingPayout || isHeld) ? 'warning' : 'info'} 
+            />
           </View>
           <TouchableOpacity onPress={() => navigation.navigate('Chat', { roomId: consultation.id, otherUserName: displaySpecialistName, otherPhone: specialistPhone })}>
             <ChatCircleDots color={theme.colors.primary} size={32} weight="fill" />
@@ -224,13 +275,54 @@ export const ConsultationDetailScreen = () => {
           </View>
         </View>
 
+        {consultation?.specialistFeedback ? (
+            <View style={styles.section}>
+                <TouchableOpacity 
+                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}
+                    onPress={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                    activeOpacity={0.7}
+                >
+                    <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Clinical Summary</Text>
+                    {isSummaryExpanded ? <X size={20} color={theme.colors.textSecondary} /> : <FileText size={20} color={theme.colors.primary} weight="fill" />}
+                </TouchableOpacity>
+
+                <View style={styles.notesBox}>
+                    <Text style={[styles.infoText, { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 8 }]}>Observations:</Text>
+                    <Text 
+                        style={styles.notesText} 
+                        numberOfLines={isSummaryExpanded ? undefined : 3}
+                    >
+                        {consultation.specialistFeedback.notes || 'No specific notes provided.'}
+                    </Text>
+                    
+                    {isSummaryExpanded ? (
+                        <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
+                            <Text style={[styles.infoText, { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 4 }]}>Follow-up:</Text>
+                            <Text style={[styles.notesText, { fontFamily: theme.typography.fontFamilyBold }]}>{consultation.specialistFeedback.followUp}</Text>
+                        </View>
+                    ) : (
+                        <TouchableOpacity onPress={() => setIsSummaryExpanded(true)} style={{ marginTop: 8 }}>
+                            <Text style={{ color: theme.colors.primary, fontSize: 12, fontFamily: theme.typography.fontFamilyBold }}>Read more...</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
+        ) : null}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Financials</Text>
           <View style={[styles.infoRow, { justifyContent: 'space-between' }]}><Text style={{ color: theme.colors.textSecondary }}>Fee Paid</Text><Text style={{ fontFamily: theme.typography.fontFamilyBold }}>NGN {Number(consultation?.totalFee).toLocaleString()}</Text></View>
-          <View style={[styles.infoRow, { justifyContent: 'space-between' }]}><Text style={{ color: theme.colors.textSecondary }}>Payout Status</Text><Badge label={consultation?.payoutStatus} variant="neutral" /></View>
+          <View style={[styles.infoRow, { justifyContent: 'space-between' }]}><Text style={{ color: theme.colors.textSecondary }}>Payout Status</Text><Badge label={isHeld ? 'Processing' : consultation?.payoutStatus} variant="neutral" /></View>
+          
+          {(isHeld && !hasFeedback) && (
+            <View style={{ marginTop: 12, padding: 12, backgroundColor: theme.colors.warning + '10', borderRadius: 8, borderWidth: 1, borderColor: theme.colors.warning + '20' }}>
+                <Text style={{ fontSize: 13, color: theme.colors.warning, fontFamily: theme.typography.fontFamilyBold, marginBottom: 4 }}>Action Required</Text>
+                <Text style={{ fontSize: 12, color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyMedium }}>Please share your feedback to help us release the payment to your specialist.</Text>
+            </View>
+          )}
         </View>
 
-        {isCompleted && (
+        {isCompleted ? (
             <View style={styles.recordsSection}>
                 <Text style={styles.sectionTitle}>Medical Records</Text>
                 <View style={styles.recordsGrid}>
@@ -265,23 +357,23 @@ export const ConsultationDetailScreen = () => {
                     </TouchableOpacity>
                 </View>
             </View>
-        )}
+        ) : null}
       </ScrollView>
 
       <View style={styles.footer}>
-        {isUpcoming && (
-            <>
+        {isUpcoming ? (
+            <View style={{ gap: 12 }}>
                 <View style={{ flexDirection: 'row', gap: 12 }}>
                     <TouchableOpacity 
-                    style={{ flex: 1, height: 48, borderRadius: 12, backgroundColor: theme.colors.primary + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 8 }}
-                    onPress={() => setDatePickerVisible(true)}
+                        style={{ flex: 1, height: 48, borderRadius: 12, backgroundColor: theme.colors.primary + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 8 }}
+                        onPress={() => setDatePickerVisible(true)}
                     >
                         <CalendarPlus size={20} color={theme.colors.primary} weight="bold" />
                         <Text style={{ color: theme.colors.primary, fontFamily: theme.typography.fontFamilyBold }}>Reschedule</Text>
                     </TouchableOpacity>
                     <TouchableOpacity 
-                    style={{ flex: 1, height: 48, borderRadius: 12, backgroundColor: theme.colors.error + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 8 }}
-                    onPress={handleCancel}
+                        style={{ flex: 1, height: 48, borderRadius: 12, backgroundColor: theme.colors.error + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 8 }}
+                        onPress={handleCancel}
                     >
                         <XCircle size={20} color={theme.colors.error} weight="bold" />
                         <Text style={{ color: theme.colors.error, fontFamily: theme.typography.fontFamilyBold }}>Cancel</Text>
@@ -298,16 +390,19 @@ export const ConsultationDetailScreen = () => {
                         </Text>
                     </View>
                 )}
-            </>
-        )}
+            </View>
+        ) : null}
 
-        {(isCompleted || isPendingPayout) && !hasFeedback && (
+        {((isCompleted || isPendingPayout) && !hasFeedback) ? (
           <PrimaryButton label="Rate Your Experience" variant="outlined" onPress={() => setReviewModalVisible(true)} />
-        )}
+        ) : null}
 
-        {hasFeedback && (
-            <View style={{ alignItems: 'center' }}><CheckCircle size={24} color={theme.colors.success} weight="fill" /><Text style={{ color: theme.colors.textSecondary, marginTop: 8 }}>Feedback Submitted</Text></View>
-        )}
+        {hasFeedback ? (
+            <View style={{ alignItems: 'center' }}>
+                <CheckCircle size={24} color={theme.colors.success} weight="fill" />
+                <Text style={{ color: theme.colors.textSecondary, marginTop: 8 }}>Feedback Submitted</Text>
+            </View>
+        ) : null}
       </View>
 
       <DateTimePickerModal
