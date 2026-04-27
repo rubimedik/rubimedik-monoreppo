@@ -89,7 +89,7 @@ export const FulfilledRequestDetailScreen = ({ route }: { route: any }) => {
 
   const renderContributor = ({ item }: { item: any }) => (
     <View style={styles.contributorItem}>
-      <Avatar name={item.isAnonymous ? 'Anonymous' : (item.donor?.fullName || 'Donor')} size={44} />
+      <Avatar uri={item.donor?.avatarUrl} name={item.isAnonymous ? 'Anonymous' : (item.donor?.fullName || 'Donor')} size={44} />
       <View style={{ flex: 1, marginLeft: 12 }}>
         <Text style={styles.contributorName}>{item.isAnonymous ? 'Anonymous Donor' : (item.donor?.fullName || 'Donor')}</Text>
         <Text style={styles.contributorMeta}>

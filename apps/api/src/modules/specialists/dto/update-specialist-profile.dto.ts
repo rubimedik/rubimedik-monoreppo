@@ -32,6 +32,11 @@ export class UpdateSpecialistProfileDto {
   @IsString()
   bankName?: string;
 
+  @ApiPropertyOptional({ example: '058', description: 'Bank code' })
+  @IsOptional()
+  @IsString()
+  bankCode?: string;
+
   @ApiPropertyOptional({ example: '0123456789', description: 'Account number' })
   @IsOptional()
   @IsString()

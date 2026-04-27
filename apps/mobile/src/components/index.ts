@@ -10,3 +10,4 @@ export * from './Skeleton';
 export * from './BackButton';
 export * from './BankSelect';
 export * from './Select';
+export * from './FloatingSupport';

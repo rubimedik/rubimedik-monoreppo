@@ -15,7 +15,9 @@ import {
   Image,
   Modal,
   Dimensions,
-  Pressable
+  Pressable,
+  RefreshControl,
+  TouchableOpacity
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -64,6 +66,8 @@ export const ChatScreen = () => {
   const roomId = params.roomId || params.chatId || 'demo';
   const initialOtherUserName = params.otherUserName || params.senderName || 'User';
   const otherPhone = params.otherPhone;
+  const isSupportChat = params.isSupport;
+  const initialTicketStatus = params.ticketStatus;
 
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
@@ -77,13 +81,28 @@ export const ChatScreen = () => {
       const res = await api.get(`/chat/rooms/${roomId}`);
       return res.data;
     },
-    enabled: roomId !== 'demo'
+    enabled: roomId !== 'demo',
+    refetchInterval: 5000,
   });
 
   const markAsReadMutation = useMutation({
     mutationFn: () => api.patch(`/chat/rooms/${roomId}/read`),
     onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['chat-rooms'] });
+    }
+  });
+
+  const resolveTicketMutation = useMutation({
+    mutationFn: () => api.post(`/support/tickets/${roomId}/resolve`),
+    onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['chat-room-info', roomId] });
+        queryClient.invalidateQueries({ queryKey: ['specialist-appointments'] });
+        queryClient.invalidateQueries({ queryKey: ['my-support-tickets'] });
+        Alert.alert('Resolved', 'Thank you for your feedback! This ticket is now marked as resolved.');
+        navigation.goBack();
+    },
+    onError: (err: any) => {
+        Alert.alert('Error', err.response?.data?.message || 'Failed to resolve ticket');
     }
   });
 
@@ -155,23 +174,26 @@ export const ChatScreen = () => {
 
   const isLocked = useMemo(() => {
       if (!roomInfo) return false;
-      const status = roomInfo.status;
-      const chatClosesAt = roomInfo.chatClosesAt;
+      const status = roomInfo?.status;
+      const chatClosesAt = roomInfo?.chatClosesAt;
 
       const isArchived = status === 'ARCHIVED';
       const isDisputed = status === 'DISPUTED';
       const isCompleted = status === 'COMPLETED';
       const isCancelled = status === 'CANCELLED';
       const isDeclined = status === 'DECLINED';
+      const isResolved = status === 'RESOLVED';
+      const isClosed = status === 'CLOSED';
       const isExpired = chatClosesAt && new Date() > new Date(chatClosesAt);
 
-      return isArchived || isDisputed || isExpired || isCompleted || isCancelled || isDeclined;
+      return isArchived || isDisputed || isExpired || isCompleted || isCancelled || isDeclined || isResolved || isClosed;
   }, [roomInfo]);
 
   const lockReason = useMemo(() => {
       if (!roomInfo) return '';
-      const status = roomInfo.status;
+      const status = roomInfo?.status;
       if (status === 'DISPUTED') return 'This chat is locked due to an active dispute.';
+      if (status === 'RESOLVED' || status === 'CLOSED') return 'This ticket has been resolved and the chat is now read-only.';
       if (status === 'ARCHIVED') return 'This chat has been archived and is now read-only.';
       if (status === 'COMPLETED') return 'This consultation has ended and the chat is now read-only.';
       if (status === 'CANCELLED') return 'This consultation was cancelled and the chat is now read-only.';
@@ -463,13 +485,15 @@ export const ChatScreen = () => {
     }
   }), [theme, isDarkMode]);
 
-  const { data: messages, isLoading: isMessagesLoading } = useQuery({
+  const { data: messages, isLoading: isMessagesLoading, refetch: refetchMessages } = useQuery({
     queryKey: ['chat-messages', roomId],
     queryFn: async () => {
       if (roomId === 'demo') return [];
       const res = await api.get(`/chat/rooms/${roomId}/messages`);
       return res.data?.items || [];
-    }
+    },
+    // Poll every 5 seconds to get AI responses without sockets
+    refetchInterval: isSupportChat ? 5000 : 15000,
   });
 
   const transformedMessages = useMemo(() => {
@@ -594,7 +618,7 @@ export const ChatScreen = () => {
     
     return (
       <View style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.otherMessageWrapper]}>
-        {!isMe && <Avatar name={chatPartnerName} size={32} style={styles.chatAvatar} />}
+        {!isMe && <Avatar uri={isSupportChat ? undefined : roomInfo?.partner?.avatarUrl} name={chatPartnerName} size={32} style={styles.chatAvatar} />}
         <Pressable 
           onLongPress={() => {
             Alert.alert('Message Actions', 'What would you like to do?', [
@@ -659,29 +683,32 @@ export const ChatScreen = () => {
       <View style={styles.header}>
         <BackButton style={{ padding: 4 }} />
         <View style={styles.headerInfo}>
-          <Avatar name={chatPartnerName} size={40} />
-          <View style={{ marginLeft: 12 }}>
-            <Text style={styles.headerName}>{chatPartnerName}</Text>
-            <Text style={styles.headerStatus}>{isLocked ? 'Read-only' : 'Online'}</Text>
-          </View>
-        </View>
-        {!isLocked && (
+          <Avatar uri={isSupportChat ? undefined : roomInfo?.partner?.avatarUrl} name={isSupportChat ? 'Rubimedik Support' : chatPartnerName} size={40} />
+          <View style={{ marginLeft: 12 }}><Text style={styles.headerName}>{isSupportChat ? 'Rubimedik Support' : chatPartnerName}</Text><Text style={styles.headerStatus}>{isSupportChat ? 'Direct Support' : isLocked ? 'Read-only' : 'Online'}</Text></View>
+        </View>{isSupportChat && !isLocked && (
+            <TouchableOpacity 
+                style={{ backgroundColor: theme.colors.success + '15', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.success + '30' }}
+                onPress={() => {
+                    Alert.alert('Resolve Ticket', 'Are you satisfied with the response? Marking as resolved will close this chat.', [
+                        { text: 'Not yet', style: 'cancel' },
+                        { text: 'Yes, Resolved', onPress: () => resolveTicketMutation.mutate(), style: 'default' }
+                    ]);
+                }}
+            ><Text style={{ color: theme.colors.success, fontSize: 12, fontFamily: theme.typography.fontFamilyBold }}>Resolve</Text></TouchableOpacity>
+        )}{!isLocked && !isSupportChat && (
             <View style={styles.headerActions}>
                 <Pressable 
                     style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]} 
                     onPress={async () => {
-                        // Check if consultation is within 10 minutes
                         if (roomInfo?.consultation?.scheduledAt) {
                             const now = new Date();
                             const startTime = new Date(roomInfo.consultation.scheduledAt);
                             const tenMinsBefore = new Date(startTime.getTime() - 10 * 60 * 1000);
-                            
                             if (now < tenMinsBefore) {
                                 Alert.alert('Too Early', 'The video call will be available 10 minutes before your scheduled appointment.');
                                 return;
                             }
                         }
-
                         try {
                             const response = await api.get(`/chat/rooms/${roomId}/token`);
                             const { token, channelName, appId } = response.data;
@@ -696,15 +723,12 @@ export const ChatScreen = () => {
                             Alert.alert('Call Error', message);
                         }
                     }}
-                >
-                    <VideoCamera color={theme.colors.primary} size={22} weight="fill" />
-                </Pressable>
+                ><VideoCamera color={theme.colors.primary} size={22} weight="fill" /></Pressable>
             </View>
         )}
-      </View>
-
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0} style={{ flex: 1 }}>
-        {isMessagesLoading ? (
+      </View>{isSupportChat && (
+        <View style={{ backgroundColor: theme.colors.primary + '10', padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: theme.colors.primary + '20' }}><WarningCircle size={20} color={theme.colors.primary} weight="fill" /><Text style={{ flex: 1, fontSize: 13, color: theme.colors.primary, fontFamily: theme.typography.fontFamilyMedium }}>{initialTicketStatus === 'AI_TRIAGE' ? "Our AI Assistant is analyzing your message. A human agent will be notified if needed." : "A human support agent has been notified and will respond shortly."}</Text></View>
+      )}<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0} style={{ flex: 1 }}>{isMessagesLoading && !messages ? (
           <View style={styles.loading}><ActivityIndicator color={theme.colors.primary} /></View>
         ) : (
           <FlatList
@@ -714,71 +738,29 @@ export const ChatScreen = () => {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.messageList}
             onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+            refreshControl={<RefreshControl refreshing={isMessagesLoading} onRefresh={refetchMessages} tintColor={theme.colors.primary} />}
           />
-        )}
-
-        {isLocked ? (
+        )}{isLocked ? (
             <View style={styles.lockedContainer}>
                 <Lock size={24} color={theme.colors.textSecondary} weight="bold" />
                 <Text style={styles.lockedText}>{lockReason}</Text>
             </View>
         ) : (
-            <View style={{ backgroundColor: theme.colors.background }}>
-                {replyingTo && (
+            <View style={{ backgroundColor: theme.colors.background }}>{!!replyingTo && (
                     <View style={styles.replyInputContainer}>
-                        <View style={[styles.replyContainer, { flex: 1, marginBottom: 0 }]}>
-                            <View style={styles.replyBorder} />
-                            <View style={{ padding: 8 }}>
-                                <Text style={styles.replyName}>{replyingTo.sender?.fullName || 'User'}</Text>
-                                <Text style={styles.replyText} numberOfLines={1}>{replyingTo.content}</Text>
-                            </View>
-                        </View>
-                        <Pressable 
-                            onPress={() => setReplyingTo(null)} 
-                            style={({ pressed }) => [{ padding: 8 }, pressed && { opacity: 0.7 }]}
-                            hitSlop={10}
-                        >
-                            <X size={20} color={theme.colors.textSecondary} />
-                        </Pressable>
+                        <View style={[styles.replyContainer, { flex: 1, marginBottom: 0 }]}><View style={styles.replyBorder} /><View style={{ padding: 8 }}><Text style={styles.replyName}>{replyingTo.sender?.fullName || 'User'}</Text><Text style={styles.replyText} numberOfLines={1}>{replyingTo.content}</Text></View></View>
+                        <Pressable onPress={() => setReplyingTo(null)} style={({ pressed }) => [{ padding: 8 }, pressed && { opacity: 0.7 }]} hitSlop={10}><X size={20} color={theme.colors.textSecondary} /></Pressable>
                     </View>
-                )}
-                <View style={styles.inputContainer}>
-                    <Pressable 
-                        style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]} 
-                        onPress={uploadFile}
-                        hitSlop={10}
-                    >
-                        <Plus color={theme.colors.textSecondary} size={26} />
-                    </Pressable>
-                    <View style={styles.inputWrapper}>
-                       <TextInput style={styles.input} placeholder={recognizing ? "Listening..." : "Type a message..."} placeholderTextColor={theme.colors.textSecondary} value={message} onChangeText={setMessage} multiline={true} blurOnSubmit={false} />
-                    </View>
+                )}<View style={styles.inputContainer}>
+                    <Pressable style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]} onPress={uploadFile} hitSlop={10}><Plus color={theme.colors.textSecondary} size={26} /></Pressable>
+                    <View style={styles.inputWrapper}><TextInput style={styles.input} placeholder={recognizing ? "Listening..." : "Type a message..."} placeholderTextColor={theme.colors.textSecondary} value={message} onChangeText={setMessage} multiline={true} blurOnSubmit={false} /></View>
                     {!message.trim() && (
-                        <Animated.View style={[micPulseStyle, { marginRight: 12 }]}>
-                            <Pressable 
-                                onPressIn={startListening}
-                                onPressOut={stopListening}
-                                style={({ pressed }) => [{ width: 44, height: 44, borderRadius: 22, backgroundColor: recognizing ? theme.colors.error : (isDarkMode ? '#2C2C2E' : '#E5E5EA'), justifyContent: 'center', alignItems: 'center' }, pressed && { opacity: 0.7 }]}
-                            >
-                                <Microphone color={recognizing ? 'white' : theme.colors.textSecondary} size={22} weight={recognizing ? "fill" : "regular"} />
-                            </Pressable>
-                        </Animated.View>
-                    )}
-                    {(!!message.trim() || sendMessageMutation.isPending) && (
-                        <Pressable 
-                           style={({ pressed }) => [styles.sendBtn, (!message.trim() || sendMessageMutation.isPending) && styles.sendBtnDisabled, pressed && { opacity: 0.7 }]} 
-                           disabled={!message.trim() || sendMessageMutation.isPending} 
-                           onPress={() => sendMessageMutation.mutate({ content: message.trim(), replyToId: replyingTo?.id })}
-                           hitSlop={10}
-                        >
-                         <PaperPlaneRight color="white" size={20} weight="fill" />
-                        </Pressable>
-                    )}
-                    </View>
-
+                        <Animated.View style={[micPulseStyle, { marginRight: 12 }]}><Pressable onPressIn={startListening} onPressOut={stopListening} style={({ pressed }) => [{ width: 44, height: 44, borderRadius: 22, backgroundColor: recognizing ? theme.colors.error : (isDarkMode ? '#2C2C2E' : '#E5E5EA'), justifyContent: 'center', alignItems: 'center' }, pressed && { opacity: 0.7 }]}><Microphone color={recognizing ? 'white' : theme.colors.textSecondary} size={22} weight={recognizing ? "fill" : "regular"} /></Pressable></Animated.View>
+                    )}{(!!message.trim() || sendMessageMutation.isPending) && (
+                        <Pressable style={({ pressed }) => [styles.sendBtn, (!message.trim() || sendMessageMutation.isPending) && styles.sendBtnDisabled, pressed && { opacity: 0.7 }]} disabled={!message.trim() || sendMessageMutation.isPending} onPress={() => sendMessageMutation.mutate({ content: message.trim(), replyToId: replyingTo?.id })} hitSlop={10}><PaperPlaneRight color="white" size={20} weight="fill" /></Pressable>
+                    )}</View>
             </View>
-        )}
-      </KeyboardAvoidingView>
+        )}</KeyboardAvoidingView>
 
       <Modal visible={previewVisible} transparent={false} animationType="slide" onRequestClose={() => setPreviewVisible(false)}>
         <View style={[styles.previewContainer, { paddingTop: insets.top }]}>

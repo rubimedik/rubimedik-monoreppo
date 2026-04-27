@@ -18,6 +18,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { Card } from '../components/Card';
 import { Avatar } from '../components/Avatar';
 import { Badge } from '../components/Badge';
+import { FloatingSupport } from '../components/FloatingSupport';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { 
     Bell, 
@@ -42,7 +43,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SpecialistStackParamList } from '../navigation/SpecialistNavigator';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { format, isTomorrow, isToday, isValid } from 'date-fns';
@@ -363,6 +364,7 @@ export const SpecialistDashboardScreen = ({ navigation }: { navigation: any }) =
       return res.data;
     },
     enabled: !!profile?.id,
+    refetchInterval: 10000,
   });
 
   const { data: activities, isLoading: activitiesLoading, refetch: refetchActivities } = useQuery({
@@ -414,6 +416,14 @@ export const SpecialistDashboardScreen = ({ navigation }: { navigation: any }) =
   const unreadCount = useMemo(() => {
     return notifications?.filter((n: any) => !n.isRead).length || 0;
   }, [notifications]);
+
+  useFocusEffect(
+    useCallback(() => {
+        refetchStats();
+        refetchAppts();
+        refetchActivities();
+    }, [refetchStats, refetchAppts, refetchActivities])
+  );
 
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -486,13 +496,17 @@ export const SpecialistDashboardScreen = ({ navigation }: { navigation: any }) =
       >
         {/* Header */}
         <View style={styles.header}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Avatar name={avatarName} size={48} />
+            <TouchableOpacity 
+                style={{ flexDirection: 'row', alignItems: 'center' }}
+                onPress={() => navigation.navigate('Profile')}
+                activeOpacity={0.7}
+            >
+                <Avatar uri={profile?.user?.avatarUrl} name={avatarName} size={48} />
                 <View style={{ marginLeft: 12 }}>
                     <Text style={styles.greeting}>Hello, {profile?.user?.fullName ? `Dr ${profile.user.fullName.split(' ')[1] || profile.user.fullName}` : displayName}</Text>
                     <Text style={styles.subGreeting}>Your schedule at a glance.</Text>
                 </View>
-            </View>
+            </TouchableOpacity>
             <GHPressable 
                 style={({ pressed }) => [styles.bellBtn, pressed && { opacity: 0.7 }]} 
                 onPress={() => navigation.navigate('Notifications')}
@@ -524,7 +538,7 @@ export const SpecialistDashboardScreen = ({ navigation }: { navigation: any }) =
         </View>
 
         {/* AI Health Tips */}
-        {healthTips && healthTips.length > 0 && (
+        {!!healthTips && healthTips.length > 0 && (
             <View style={styles.section}>
                 <TouchableOpacity 
                     style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: isTipsExpanded ? 16 : 0 }}
@@ -568,7 +582,7 @@ export const SpecialistDashboardScreen = ({ navigation }: { navigation: any }) =
         )}
 
         {/* Next Appointment Section */}
-        {nextAppt && (
+        {!!nextAppt && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { marginBottom: 16 }]}>Next Appointment</Text>
             <TouchableOpacity activeOpacity={0.9} style={styles.heroCard} onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: nextAppt.id })}>
@@ -619,7 +633,22 @@ export const SpecialistDashboardScreen = ({ navigation }: { navigation: any }) =
 
                 <View style={styles.heroActions}>
                     {nextAppt.payoutStatus === 'HELD' ? (
-                         <TouchableOpacity style={[styles.heroBtnWhite, { backgroundColor: '#FFEBEE' }]} onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: nextAppt.id })}>
+                         <TouchableOpacity 
+                            style={[styles.heroBtnWhite, { backgroundColor: '#FFEBEE' }]} 
+                            onPress={() => {
+                                const ticket = nextAppt.supportTickets?.find((t: any) => t.status !== 'RESOLVED');
+                                if (ticket) {
+                                    navigation.navigate('Chat', { 
+                                        roomId: ticket.id, 
+                                        otherUserName: 'Rubimedik Support',
+                                        isSupport: true,
+                                        ticketStatus: ticket.status
+                                    });
+                                } else {
+                                    navigation.navigate('AppointmentDetails', { appointmentId: nextAppt.id });
+                                }
+                            }}
+                         >
                             <Text style={[styles.heroBtnTextRed, { color: '#C62828' }]}>Resolve Issue</Text>
                         </TouchableOpacity>
                     ) : (
@@ -648,26 +677,13 @@ export const SpecialistDashboardScreen = ({ navigation }: { navigation: any }) =
                             style={styles.reqRow} 
                             onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: item.id })}
                             activeOpacity={0.7}
-                        >
-                            <Avatar name={getAvatarName(item.patient)} size={56} />
-                            <View style={styles.reqInfo}>
-                                <Text style={styles.reqName}>{getIdentityName(item.patient)}</Text>
-                                <View style={styles.reqMetaRow}>
-                                    <View style={styles.metaItem}><VideoCamera size={14} color={theme.colors.textSecondary} weight="fill" /><Text style={styles.metaText}>{item.consultationType || 'Video Call'}</Text></View>
-                                    <View style={styles.metaItem}><Clock size={14} color={theme.colors.textSecondary} weight="fill" /><Text style={styles.metaText}>{formatRelativeDay(item.scheduledAt || item.createdAt)}, {safeFormat(item.scheduledAt || item.createdAt, 'h:mm aa')}</Text></View>
-                                </View>
-                            </View>
-                        </TouchableOpacity>
+                        ><Avatar name={getAvatarName(item.patient)} size={56} /><View style={styles.reqInfo}><Text style={styles.reqName}>{getIdentityName(item.patient)}</Text><View style={styles.reqMetaRow}><View style={styles.metaItem}><VideoCamera size={14} color={theme.colors.textSecondary} weight="fill" /><Text style={styles.metaText}>{item.consultationType || 'Video Call'}</Text></View><View style={styles.metaItem}><Clock size={14} color={theme.colors.textSecondary} weight="fill" /><Text style={styles.metaText}>{formatRelativeDay(item.scheduledAt || item.createdAt)}, {safeFormat(item.scheduledAt || item.createdAt, 'h:mm aa')}</Text></View></View></View></TouchableOpacity>
                         <View style={styles.reqActions}>
                             <TouchableOpacity 
                                style={[styles.reqBtn, styles.declineBtn]} 
                                onPress={() => Alert.alert('Decline Request', 'Are you sure you want to decline this request? The patient will be fully refunded.', [{ text: 'No' }, { text: 'Yes, Decline', onPress: () => declineMutation.mutate(item.id), style: 'destructive' }])}
-                            >
-                               <Text style={styles.declineBtnText}>Decline</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.confirmBtn} onPress={() => confirmMutation.mutate(item.id)}>
-                               <Text style={styles.confirmBtnText}>Confirm</Text>
-                            </TouchableOpacity>
+                            ><Text style={styles.declineBtnText}>Decline</Text></TouchableOpacity>
+                            <TouchableOpacity style={styles.confirmBtn} onPress={() => confirmMutation.mutate(item.id)}><Text style={styles.confirmBtnText}>Confirm</Text></TouchableOpacity>
                         </View>                    </View>
                 ))}
             </View>
@@ -683,10 +699,7 @@ export const SpecialistDashboardScreen = ({ navigation }: { navigation: any }) =
                             style={styles.reqRow}
                             onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: item.id })}
                             activeOpacity={0.7}
-                        >
-                            <Avatar name={getAvatarName(item.patient)} size={56} />
-                            <View style={styles.reqInfo}><Text style={styles.reqName}>{getIdentityName(item.patient)}</Text><View style={styles.reqMetaRow}><View style={styles.metaItem}><VideoCamera size={14} color={theme.colors.textSecondary} weight="fill" /><Text style={styles.metaText}>{item.consultationType || 'Video Call'}</Text></View><View style={styles.metaItem}><Clock size={14} color={theme.colors.textSecondary} weight="fill" /><Text style={styles.metaText}>{formatRelativeDay(item.scheduledAt || item.createdAt)}, {safeFormat(item.scheduledAt || item.createdAt, 'h:mm aa')}</Text></View></View></View>
-                        </TouchableOpacity>
+                        ><Avatar name={getAvatarName(item.patient)} size={56} /><View style={styles.reqInfo}><Text style={styles.reqName}>{getIdentityName(item.patient)}</Text><View style={styles.reqMetaRow}><View style={styles.metaItem}><VideoCamera size={14} color={theme.colors.textSecondary} weight="fill" /><Text style={styles.metaText}>{item.consultationType || 'Video Call'}</Text></View><View style={styles.metaItem}><Clock size={14} color={theme.colors.textSecondary} weight="fill" /><Text style={styles.metaText}>{formatRelativeDay(item.scheduledAt || item.createdAt)}, {safeFormat(item.scheduledAt || item.createdAt, 'h:mm aa')}</Text></View></View></View></TouchableOpacity>
                         <View style={styles.reqActions}>
                             <TouchableOpacity style={styles.upcReschedBtn} onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: item.id })}><Text style={{ color: 'white', fontWeight: 'bold' }}>Re-Schedule</Text></TouchableOpacity>
                             <TouchableOpacity style={styles.upcCancelBtn} onPress={() => Alert.alert('Cancel Appointment', 'Are you sure?', [{ text: 'No' }, { text: 'Yes', onPress: () => cancelMutation.mutate(item.id) }])}><Text style={styles.upcCancelText}>Cancel</Text></TouchableOpacity>
@@ -714,6 +727,7 @@ export const SpecialistDashboardScreen = ({ navigation }: { navigation: any }) =
         </View>
 
       </ScrollView>
+      <FloatingSupport />
     </SafeAreaView>
   );
 };

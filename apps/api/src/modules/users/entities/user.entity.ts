@@ -139,6 +139,22 @@ export class User {
   @Column({ default: true })
   emailSecurity: boolean;
 
+  @ApiProperty({ example: 'GTBank', required: false })
+  @Column({ nullable: true })
+  bankName?: string;
+
+  @ApiProperty({ example: '058', required: false })
+  @Column({ nullable: true })
+  bankCode?: string;
+
+  @ApiProperty({ example: '0123456789', required: false })
+  @Column({ nullable: true })
+  accountNumber?: string;
+
+  @ApiProperty({ example: 'John Doe', required: false })
+  @Column({ nullable: true })
+  accountName?: string;
+
   @ApiProperty()
   @CreateDateColumn()
   createdAt: Date;

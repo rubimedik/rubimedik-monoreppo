@@ -194,6 +194,7 @@ export const BloodRequestsNearbyScreen = () => {
 
       <View style={styles.searchContainer}>
           <TextInput 
+            label="Search"
             placeholder="Search blood type or hospital..."
             value={searchQuery}
             onChangeText={setSearchQuery}

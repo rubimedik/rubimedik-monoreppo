@@ -95,4 +95,24 @@ export class UpdateUserDto {
 
   @IsOptional()
   emailSecurity?: boolean;
+
+  @ApiPropertyOptional({ example: 'GTBank' })
+  @IsOptional()
+  @IsString()
+  bankName?: string;
+
+  @ApiPropertyOptional({ example: '058' })
+  @IsOptional()
+  @IsString()
+  bankCode?: string;
+
+  @ApiPropertyOptional({ example: '0123456789' })
+  @IsOptional()
+  @IsString()
+  accountNumber?: string;
+
+  @ApiPropertyOptional({ example: 'John Doe' })
+  @IsOptional()
+  @IsString()
+  accountName?: string;
 }

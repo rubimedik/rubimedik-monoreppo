@@ -12,7 +12,8 @@ import {
   Moon,
   Sun,
   Menu,
-  X
+  X,
+  HelpCircle
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
@@ -41,6 +42,7 @@ export default function DashboardLayout() {
     { name: 'Financials', href: '/financials', icon: Wallet },
     { name: 'KYC Verification', href: '/kyc', icon: ShieldCheck },
     { name: 'Referrals', href: '/referrals', icon: Share2 },
+    { name: 'Support Tickets', href: '/support', icon: HelpCircle },
   ];
 
   return (

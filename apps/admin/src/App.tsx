@@ -11,6 +11,7 @@ import Financials from './pages/Financials';
 import KYC from './pages/KYC';
 import Login from './pages/Login';
 import Referrals from './pages/Referrals';
+import Support from './pages/Support';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,6 +53,7 @@ function App() {
               <Route path="financials" element={<Financials />} />
               <Route path="kyc" element={<KYC />} />
               <Route path="referrals" element={<Referrals />} />
+              <Route path="support" element={<Support />} />
             </Route>
           </Routes>
         </Router>

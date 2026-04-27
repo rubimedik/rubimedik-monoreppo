@@ -226,6 +226,11 @@ export const DonationsScreen = () => {
       color: theme.colors.textSecondary,
       fontFamily: theme.typography.fontFamily,
     },
+    statusDot: {
+        fontSize: 14,
+        color: theme.colors.textMuted,
+        marginHorizontal: 4,
+    },
     declineReasonBox: {
       flexDirection: 'row',
       alignItems: 'center',

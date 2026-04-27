@@ -38,6 +38,7 @@ export const MyAppointmentsScreen = () => {
 
   const isDonor = user?.activeRole === UserRole.DONOR;
   const isSpecialist = user?.activeRole === UserRole.SPECIALIST;
+  const isHospital = user?.activeRole === UserRole.HOSPITAL;
 
   const { data: appointments, isLoading, refetch } = useQuery({
     queryKey: ['appointments', user?.id, user?.activeRole],
@@ -45,6 +46,10 @@ export const MyAppointmentsScreen = () => {
       if (isDonor) {
         // Fetch blood donation bookings for donor
         const res = await api.get('/donations/my');
+        return res.data;
+      } else if (isHospital) {
+        // Fetch blood donation bookings for hospital
+        const res = await api.get('/donations/hospital/matches');
         return res.data;
       } else {
         // Fetch medical consultations for patient or specialist
@@ -73,20 +78,23 @@ export const MyAppointmentsScreen = () => {
 
     // 2. Filter by tab
     let filtered = sorted.filter((app: any) => {
+      if (!app) return false;
+      if (isHospital) {
+        if (activeTab === 'Requests') return app.status === DonationStatus.PENDING;
+        if (activeTab === 'Upcoming') return app.status === DonationStatus.ACCEPTED;
+        if (activeTab === 'Completed') return [DonationStatus.COMPLETED, DonationStatus.VERIFIED, DonationStatus.DONATED].includes(app.status);
+        if (activeTab === 'Declined') return app.status === DonationStatus.DECLINED || app.status === 'CANCELLED';
+        return false;
+      }
+
       if (isDonor) {
-        if (activeTab === 'Declined' || activeTab === 'Completed') {
-           const isDeclined = app.status === DonationStatus.DECLINED;
-           const isCompleted = [DonationStatus.COMPLETED, DonationStatus.VERIFIED, DonationStatus.DONATED].includes(app.status);
-           return activeTab === 'Declined' ? isDeclined : isCompleted;
-        }
-        const isPast = [
-          DonationStatus.COMPLETED, 
-          DonationStatus.VERIFIED, 
-          DonationStatus.DONATED
-        ].includes(app.status);
-        return activeTab === 'Upcoming' ? !isPast && app.status !== DonationStatus.DECLINED : isPast;
-      } else {
-        if (isSpecialist) {
+        if (activeTab === 'Upcoming') return [DonationStatus.PENDING, DonationStatus.ACCEPTED].includes(app.status);
+        if (activeTab === 'Completed') return [DonationStatus.COMPLETED, DonationStatus.VERIFIED, DonationStatus.DONATED].includes(app.status);
+        if (activeTab === 'Declined') return app.status === DonationStatus.DECLINED || app.status === 'CANCELLED';
+        return false;
+      }
+
+      if (isSpecialist) {
             if (activeTab === 'Requests') return app.status === 'UPCOMING';
             if (activeTab === 'Upcoming') return app.status === 'CONFIRMED' || app.status === 'PENDING';
             
@@ -126,7 +134,6 @@ export const MyAppointmentsScreen = () => {
             if (activeTab === 'Upcoming') return isUpcoming;
             return false;
         }
-      }
     });
 
     // 3. Filter by search query
@@ -146,7 +153,7 @@ export const MyAppointmentsScreen = () => {
     }
 
     return filtered;
-  }, [appointments, activeTab, searchQuery, isDonor, isSpecialist]);
+  }, [appointments, activeTab, searchQuery, isDonor, isSpecialist, isHospital]);
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -314,6 +321,9 @@ export const MyAppointmentsScreen = () => {
     
     // For Avatar, pass the full name or full email so initials can be generated
     const avatarName = isSpecialist ? (item.consultation?.patient?.fullName || item.patient?.fullName || item.consultation?.patient?.email || item.patient?.email || 'User') : (specialist?.fullName || specialist?.user?.fullName || specialist?.user?.email || 'User');
+    const avatarUrl = isSpecialist 
+      ? (item.consultation?.patient?.avatarUrl || item.patient?.avatarUrl || item.consultation?.patient?.user?.avatarUrl || item.patient?.user?.avatarUrl)
+      : (specialist?.avatarUrl || specialist?.user?.avatarUrl);
     
     const displayName = isSpecialist ? patientName : (specialist?.fullName || specialist?.user?.fullName || specialist?.user?.email?.split('@')[0] || 'Dr. Specialist');
     const displayPhone = isSpecialist 
@@ -364,7 +374,7 @@ export const MyAppointmentsScreen = () => {
         onPress={() => navigation.navigate(detailRoute, { appointmentId: item.id, consultationId: cons.id })}
       >
         <View style={styles.cardHeader}>
-          <Avatar name={avatarName} size={48} />
+          <Avatar uri={avatarUrl} name={avatarName} size={48} />
           <View style={styles.headerInfo}>
             <Text style={styles.specialistName}>{displayName}</Text>
             <Text style={styles.specialty}>
@@ -451,88 +461,38 @@ export const MyAppointmentsScreen = () => {
               <CaretRight size={14} color={theme.colors.white} />
             </TouchableOpacity>
           </View>
-        </View>
-
-        {isActionable && !isPendingPayoutTab ? (
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-                {isRequest ? (
-                    <View style={{ flexDirection: 'row', gap: 12, flex: 1 }}>
-                        <TouchableOpacity 
-                            style={{ flex: 1, height: 40, borderRadius: 10, backgroundColor: theme.colors.success + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6 }}
-                            onPress={() => {
-                                Alert.alert('Confirm Request', 'Are you sure you want to confirm this appointment request?', [
-                                    { text: 'Cancel', style: 'cancel' },
-                                    { text: 'Confirm', onPress: () => confirmMutation.mutate(item.id) }
-                                ]);
-                            }}
-                        >
-                            <CheckCircle size={16} color={theme.colors.success} weight="bold" />
-                            <Text style={{ color: theme.colors.success, fontSize: 12, fontFamily: theme.typography.fontFamilyBold }}>Confirm</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                            style={{ flex: 1, height: 40, borderRadius: 10, backgroundColor: theme.colors.error + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6 }}
-                            onPress={() => navigation.navigate(detailRoute, { appointmentId: item.id, consultationId: item.consultation?.id || item.id, action: 'cancel' })}
-                        >
-                            <XCircle size={16} color={theme.colors.error} weight="bold" />
-                            <Text style={{ color: theme.colors.error, fontSize: 12, fontFamily: theme.typography.fontFamilyBold }}>Cancel</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <View style={{ flexDirection: 'row', gap: 12, flex: 1 }}>
-                        <TouchableOpacity 
-                            style={{ flex: 1, height: 40, borderRadius: 10, backgroundColor: theme.colors.error + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6 }}
-                            onPress={() => navigation.navigate(detailRoute, { appointmentId: item.id, consultationId: item.consultation?.id || item.id, action: 'cancel' })}
-                        >
-                            <XCircle size={16} color={theme.colors.error} weight="bold" />
-                            <Text style={{ color: theme.colors.error, fontSize: 12, fontFamily: theme.typography.fontFamilyBold }}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                            style={{ flex: 1, height: 40, borderRadius: 10, backgroundColor: theme.colors.primary + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6 }}
-                            onPress={() => navigation.navigate(detailRoute, { appointmentId: item.id, consultationId: item.consultation?.id || item.id, action: 'reschedule' })}
-                        >
-                            <CalendarPlus size={16} color={theme.colors.primary} weight="bold" />
-                            <Text style={{ color: theme.colors.primary, fontSize: 12, fontFamily: theme.typography.fontFamilyBold }}>Reschedule</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-            </View>
-        ) : null}
-      </Card>
-    );
+        </View>{isActionable && !isPendingPayoutTab ? (<View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>{isRequest ? (<View style={{ flexDirection: 'row', gap: 12, flex: 1 }}><TouchableOpacity style={{ flex: 1, height: 40, borderRadius: 10, backgroundColor: theme.colors.success + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6 }} onPress={() => { Alert.alert('Confirm Request', 'Are you sure you want to confirm this appointment request?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Confirm', onPress: () => confirmMutation.mutate(item.id) }]); }}><CheckCircle size={16} color={theme.colors.success} weight="bold" /><Text style={{ color: theme.colors.success, fontSize: 12, fontFamily: theme.typography.fontFamilyBold }}>Confirm</Text></TouchableOpacity><TouchableOpacity style={{ flex: 1, height: 40, borderRadius: 10, backgroundColor: theme.colors.error + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6 }} onPress={() => navigation.navigate(detailRoute, { appointmentId: item.id, consultationId: item.consultation?.id || item.id, action: 'cancel' })}><XCircle size={16} color={theme.colors.error} weight="bold" /><Text style={{ color: theme.colors.error, fontSize: 12, fontFamily: theme.typography.fontFamilyBold }}>Decline</Text></TouchableOpacity></View>) : (<View style={{ flexDirection: 'row', gap: 12, flex: 1 }}><TouchableOpacity style={{ flex: 1, height: 40, borderRadius: 10, backgroundColor: theme.colors.error + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6 }} onPress={() => navigation.navigate(detailRoute, { appointmentId: item.id, consultationId: item.consultation?.id || item.id, action: 'cancel' })}><XCircle size={16} color={theme.colors.error} weight="bold" /><Text style={{ color: theme.colors.error, fontSize: 12, fontFamily: theme.typography.fontFamilyBold }}>Cancel</Text></TouchableOpacity><TouchableOpacity style={{ flex: 1, height: 40, borderRadius: 10, backgroundColor: theme.colors.primary + '10', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6 }} onPress={() => navigation.navigate(detailRoute, { appointmentId: item.id, consultationId: item.consultation?.id || item.id, action: 'reschedule' })}><CalendarPlus size={16} color={theme.colors.primary} weight="bold" /><Text style={{ color: theme.colors.primary, fontSize: 12, fontFamily: theme.typography.fontFamilyBold }}>Reschedule</Text></TouchableOpacity></View>)}</View>) : null}</Card>    );
   };
 
   const renderDonationAppointment = (item: any) => (
-    <Card 
+    <Card
       style={styles.appointmentCard}
       onPress={() => navigation.navigate('BloodRequestDetail', { requestId: item.request?.id })}
     >
       <View style={styles.cardHeader}>
-        <Avatar name={item.request?.hospital?.hospitalProfile?.hospitalName || 'Hospital'} size={48} />
+        <Avatar uri={item.request?.hospital?.avatarUrl} name={item.request?.hospital?.hospitalProfile?.hospitalName || 'Hospital'} size={48} />
         <View style={styles.headerInfo}>
           <Text style={styles.specialistName}>{item.request?.hospital?.hospitalProfile?.hospitalName || 'Hospital'}</Text>
           <Text style={styles.specialty}>{item.request?.hospital?.hospitalProfile?.address || 'Medical Facility'}</Text>
         </View>
-        <Badge 
+        <Badge
           label={item.status} 
           variant={item.status === DonationStatus.ACCEPTED ? 'success' : item.status === DonationStatus.PENDING ? 'warning' : 'info'} 
         />
       </View>
 
-      <View style={styles.cardDivider} />
-
-      <View style={styles.cardFooter}>
+      <View style={styles.cardDivider} /><View style={styles.cardFooter}>
         <View style={styles.dateTimeRow}>
           <View style={styles.infoItem}>
             <Drop size={16} color={theme.colors.error} weight="fill" />
-            <Text style={styles.infoText}>Blood Type: <Text style={{fontFamily: theme.typography.fontFamilyBold}}>{item.request?.bloodType}</Text></Text>
+            <Text style={styles.infoText}>Blood Type: <Text style={{fontFamily: theme.typography.fontFamilyBold}}>{item.request?.bloodType || 'N/A'}</Text></Text>
           </View>
           <View style={styles.infoItem}>
             <CalendarIcon size={16} color={theme.colors.textSecondary} />
             <Text style={styles.infoText}>{safeFormat(item.createdAt, 'PPP')}</Text>
           </View>
         </View>
-
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.detailsButton}
           onPress={() => navigation.navigate('BloodRequestDetail', { requestId: item.request?.id })}
         >
@@ -543,12 +503,12 @@ export const MyAppointmentsScreen = () => {
     </Card>
   );
 
-
   const tabOptions = useMemo(() => {
     if (isSpecialist) return ['Requests', 'Upcoming', 'Pending Payout', 'History', 'Cancelled'];
+    if (isHospital) return ['Requests', 'Upcoming', 'Completed', 'Cancelled'];
     if (isDonor) return ['Upcoming', 'Completed', 'Cancelled'];
     return ['Upcoming', 'Review Needed', 'Completed', 'Cancelled'];
-  }, [isSpecialist, isDonor]);
+  }, [isSpecialist, isHospital, isDonor]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -565,8 +525,7 @@ export const MyAppointmentsScreen = () => {
       </View>
 
       <View style={styles.tabs}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {tabOptions.map((tab) => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>{tabOptions.map((tab) => (
             <TouchableOpacity 
                 key={tab}
                 style={[styles.tab, (activeTab === tab || (tab === 'Cancelled' && activeTab === 'Declined')) && styles.activeTab, { paddingHorizontal: 16 }]}
@@ -588,7 +547,7 @@ export const MyAppointmentsScreen = () => {
       ) : (
         <FlatList
           data={filteredAppointments}
-          renderItem={({ item }) => isDonor ? renderDonationAppointment(item) : renderMedicalAppointment(item)}
+          renderItem={({ item }) => (isDonor || isHospital) ? renderDonationAppointment(item) : renderMedicalAppointment(item)}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={theme.colors.primary} />}
@@ -596,15 +555,13 @@ export const MyAppointmentsScreen = () => {
             <View style={styles.emptyContainer}>
               <CalendarIcon size={64} color={theme.colors.border} weight="light" />
               <Text style={styles.emptyText}>No {activeTab.toLowerCase()} appointments found.</Text>
-              {activeTab === 'Upcoming' && !isSpecialist && (
-                <TouchableOpacity 
+              {activeTab === 'Upcoming' && !isSpecialist && (<TouchableOpacity 
                   style={styles.bookBtn}
-                  onPress={() => navigation.navigate(isDonor ? 'BloodRequestsNearby' : 'SearchSpecialists')}
+                  onPress={() => isDonor ? navigation.navigate('Donations') : navigation.navigate('SearchSpecialists')}
                 >
                   <Text style={styles.bookBtnText}>{isDonor ? 'Find Blood Requests' : 'Book an Appointment'}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+                </TouchableOpacity>)}
+              </View>
           )}
         />
       )}

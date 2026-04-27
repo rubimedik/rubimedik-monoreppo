@@ -17,6 +17,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { AiModule } from './modules/ai/ai.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
+import { SupportModule } from './modules/support/support.module';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
@@ -76,6 +77,7 @@ import * as Joi from 'joi';
     AdminModule,
     AiModule,
     ActivitiesModule,
+    SupportModule,
   ],
 })
 export class AppModule {}

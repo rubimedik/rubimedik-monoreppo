@@ -13,6 +13,7 @@ import { Card, BackButton } from '../components';
 import { CaretLeft, Bell, Envelope, DeviceMobile, Broadcast } from 'phosphor-react-native';
 import { useNavigation } from '@react-navigation/native';
 
+import { useNotificationStore } from '../store/useNotificationStore';
 import { UserRole } from '@repo/shared';
 import { useAuthStore } from '../store/useAuthStore';
 

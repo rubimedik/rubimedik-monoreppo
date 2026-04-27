@@ -75,6 +75,26 @@ export const BookingScreen = () => {
     }
   });
 
+  const { data: pendingReviews } = useQuery({
+    queryKey: ['hospital-pending-reviews'],
+    queryFn: async () => {
+      const res = await api.get('/donations/pending-reviews?role=HOSPITAL');
+      return res.data;
+    },
+    enabled: user?.activeRole === 'HOSPITAL'
+  });
+
+  const { data: pendingPatientReviews } = useQuery({
+    queryKey: ['patient-pending-reviews'],
+    queryFn: async () => {
+      const res = await api.get('/consultations/pending-reviews');
+      return res.data;
+    },
+    enabled: user?.activeRole === 'PATIENT'
+  });
+
+  const hasPendingReviews = (pendingReviews?.length > 0) || (pendingPatientReviews?.length > 0);
+
   const consultationFee = selectedPackage?.price || 0;
   const pointValue = config?.referralPointValue || 500;
   const userPoints = wallet?.points || 0;
@@ -405,6 +425,9 @@ export const BookingScreen = () => {
         flex: 1,
         fontSize: 13,
         color: theme.colors.textSecondary,
+    },
+    footer: {
+        marginTop: 20,
     }
   }), [theme]);
 
@@ -613,11 +636,28 @@ export const BookingScreen = () => {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { padding: 20, backgroundColor: theme.colors.surface, borderTopWidth: 1, borderTopColor: theme.colors.border }]}>
+        {hasPendingReviews && (
+            <View style={{ marginBottom: 12, padding: 12, backgroundColor: theme.colors.warning + '15', borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Star size={20} color={theme.colors.warning} weight="fill" />
+                <Text style={{ flex: 1, fontSize: 12, color: theme.colors.warning, fontFamily: theme.typography.fontFamilyBold }}>
+                    Action Required: Please submit feedback for your previous session before booking a new one.
+                </Text>
+            </View>
+        )}
+
+        {!hasPendingReviews && !canBook && (
+            <View style={{ marginBottom: 12, padding: 10, backgroundColor: theme.colors.primary + '10', borderRadius: 8 }}>
+                <Text style={{ fontSize: 11, color: theme.colors.primary, textAlign: 'center', fontFamily: theme.typography.fontFamilyMedium }}>
+                    Please select a {!selectedPackage ? 'package' : !selectedDate ? 'date' : 'time slot'} to continue.
+                </Text>
+            </View>
+        )}
+        
         <PrimaryButton 
             label="Confirm & Pay"
             onPress={() => bookMutation.mutate()}
-            disabled={!canBook || wallet?.balance < totalPayable || bookMutation.isPending}
+            disabled={!canBook || (wallet && wallet.balance < totalPayable) || bookMutation.isPending || hasPendingReviews}
             isLoading={bookMutation.isPending}
         />
       </View>

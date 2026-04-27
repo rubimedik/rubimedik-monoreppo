@@ -22,7 +22,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(private readonly chatService: ChatService) {
+    this.chatService.messageEmitter.subscribe(({ roomId, message }) => {
+      if (this.server) {
+        this.server.to(roomId).emit('newMessage', message);
+      }
+    });
+  }
 
   handleConnection(client: Socket) {
     console.log(`Client connected: ${client.id}`);

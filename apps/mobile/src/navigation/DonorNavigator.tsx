@@ -36,6 +36,9 @@ import { ConsultationDetailScreen } from '../screens/ConsultationDetailScreen';
 import { WalletScreen } from '../screens/WalletScreen';
 import { donationService } from '../services/donationService';
 import { ReviewForm } from '../components/ReviewForm';
+import { SupportTicketListScreen } from '../screens/SupportTicketListScreen';
+import { CreateSupportTicketScreen } from '../screens/CreateSupportTicketScreen';
+import { ChatScreen } from '../screens/ChatScreen';
 import { 
   House as HomeIcon, 
   User as UserIcon,
@@ -53,6 +56,8 @@ export type DonorStackParamList = {
   Payment: { amount: number };
   TopUp: { amount?: number };
   HelpSupport: undefined;
+  SupportTickets: undefined;
+  CreateSupportTicket: { category?: any; subject?: string; consultationId?: string } | undefined;
   Notifications: undefined;
   ActivityDetail: { activityId: string; title: string; type: string; time: string; message: string };
   Transfer: undefined;
@@ -73,6 +78,7 @@ export type DonorStackParamList = {
   TransactionHistory: undefined;
   TransactionDetail: { transaction: any };
   ConsultationDetail: { consultationId: string };
+  Chat: { roomId: string; otherUserName: string; otherPhone?: string; isSupport?: boolean; ticketStatus?: string };
 };
 
 const Stack = createNativeStackNavigator<DonorStackParamList>();
@@ -135,8 +141,7 @@ const TabNavigator = () => {
                     {upcomingCount > 9 ? '9+' : upcomingCount}
                   </Text>
                 </View>
-              )
-              }
+              )}
             </View>
           ),
         }}
@@ -177,6 +182,8 @@ export const DonorNavigator = () => {
       <Stack.Screen name="Payment" component={PaymentScreen} />
       <Stack.Screen name="TopUp" component={TopUpScreen} />
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+      <Stack.Screen name="SupportTickets" component={SupportTicketListScreen} />
+      <Stack.Screen name="CreateSupportTicket" component={CreateSupportTicketScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
       <Stack.Screen name="Transfer" component={TransferScreen} />
@@ -196,6 +203,7 @@ export const DonorNavigator = () => {
       <Stack.Screen name="TransactionHistory" component={TransactionsHistoryScreen} />
       <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
       <Stack.Screen name="ConsultationDetail" component={ConsultationDetailScreen} />
+      <Stack.Screen name="Chat" component={ChatScreen} />
     </Stack.Navigator>
   );
 };

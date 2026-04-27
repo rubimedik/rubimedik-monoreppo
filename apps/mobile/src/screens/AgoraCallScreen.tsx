@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AgoraUIKit from 'agora-rn-uikit';
 import { useNavigation, useRoute } from '@react-navigation/native';
+
+const AgoraUIKit = lazy(() => import('agora-rn-uikit'));
 
 const AgoraCallScreen = () => {
   const navigation = useNavigation();
@@ -81,17 +82,24 @@ const AgoraCallScreen = () => {
          </Text>
       </View>
       {videoCall ? (
-        <AgoraUIKit 
-          connectionData={connectionData} 
-          rtcCallbacks={rtcCallbacks}
-          settings={{
-            displayRtmOptions: false,
-          }}
-          styleProps={{
-            container: { flex: 1 },
-            localVideoContainer: { width: 120, height: 160, bottom: 100, right: 10 },
-          }}
-        />
+        <Suspense fallback={
+            <View style={styles.centered}>
+                <ActivityIndicator size="large" color="#D32F2F" />
+                <Text style={styles.loadingText}>Initializing Video...</Text>
+            </View>
+        }>
+            <AgoraUIKit 
+                connectionData={connectionData} 
+                rtcCallbacks={rtcCallbacks}
+                settings={{
+                    displayRtmOptions: false,
+                }}
+                styleProps={{
+                    container: { flex: 1 },
+                    localVideoContainer: { width: 120, height: 160, bottom: 100, right: 10 },
+                }}
+            />
+        </Suspense>
       ) : (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#D32F2F" />

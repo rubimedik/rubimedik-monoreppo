@@ -73,7 +73,7 @@ export class DonationsScheduler {
                 'Post-Donation Recovery Guide',
                 `<p>Hello ${match.donor.fullName || 'Donor'},</p>
                  <p>Thank you for donating! Here is your 48-hour recovery guide:</p>
-                 <pre style="font-family: sans-serif; background: #f4f4f4; padding: 15px;">${recoveryGuide}</pre>`
+                 <div style="font-family: sans-serif; background: #f9f9f9; padding: 20px; border-radius: 12px; line-height: 1.6;">${recoveryGuide}</div>`
             );
         } catch (e) {
             this.logger.error(`Post-donation recovery failed for match ${match.id}: ` + e.message);

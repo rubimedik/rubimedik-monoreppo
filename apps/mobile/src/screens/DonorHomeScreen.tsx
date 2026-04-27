@@ -18,6 +18,7 @@ import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Avatar } from '../components/Avatar';
+import { FloatingSupport } from '../components/FloatingSupport';
 import {
   Bell,
   Calendar as CalendarIcon,
@@ -676,7 +677,7 @@ export const DonorHomeScreen = ({ navigation }: { navigation: any }) => {
       await donationService.cancelDonation(matchId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['my-donations']);
+      queryClient.invalidateQueries({ queryKey: ['my-donations'] });
       Alert.alert('Success', 'Appointment cancelled successfully');
     },
     onError: () => {
@@ -690,7 +691,7 @@ export const DonorHomeScreen = ({ navigation }: { navigation: any }) => {
       await donationService.rescheduleDonation(matchId, scheduledDate);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['my-donations']);
+      queryClient.invalidateQueries({ queryKey: ['my-donations'] });
       Alert.alert('Success', 'Appointment rescheduled successfully');
     },
     onError: () => {
@@ -745,8 +746,12 @@ export const DonorHomeScreen = ({ navigation }: { navigation: any }) => {
         
         {/* Header */}
         <View style={styles.header}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Avatar name={profile?.fullName || user?.email} size={48} />
+          <TouchableOpacity 
+            style={{ flexDirection: 'row', alignItems: 'center' }}
+            onPress={() => navigation.navigate('Profile')}
+            activeOpacity={0.7}
+          >
+            <Avatar uri={profile?.avatarUrl} name={profile?.fullName || user?.email} size={48} />
             <View style={{ marginLeft: 12 }}>
               <Text style={styles.greeting}>Hello, {userName}</Text>
               <Text style={styles.subGreeting}>
@@ -755,7 +760,7 @@ export const DonorHomeScreen = ({ navigation }: { navigation: any }) => {
                   : 'Complete your profile to donate'}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
           <GHPressable 
             style={({ pressed }) => [styles.notificationButton, pressed && { opacity: 0.7 }]}
             onPress={() => navigation.navigate('Notifications')}
@@ -817,40 +822,16 @@ export const DonorHomeScreen = ({ navigation }: { navigation: any }) => {
              style={styles.quickActionCard} 
              variant="outlined" 
              onPress={() => hasPendingReview ? navigation.navigate('Donations') : navigation.navigate('BloodRequestsNearby')}
-           >
-             <View style={[styles.actionIconContainer, { backgroundColor: hasPendingReview ? theme.colors.warning + '15' : theme.colors.error + '15' }]}>
-               {hasPendingReview ? <ChatTeardropDots color={theme.colors.warning} size={22} weight="fill" /> : <Drop color={theme.colors.error} size={22} weight="fill" />}
-             </View>
-             <Text style={styles.actionTitle}>{hasPendingReview ? 'Pending Review' : 'Donate Now'}</Text>
-             <Text style={[styles.actionDesc, hasPendingReview && { color: theme.colors.warning, fontFamily: theme.typography.fontFamilyBold }]}>
-                {hasPendingReview ? 'Feedback Required' : 'See blood requests\naround you'}
-             </Text>
-           </Card>
+           ><View style={[styles.actionIconContainer, { backgroundColor: hasPendingReview ? theme.colors.warning + '15' : theme.colors.error + '15' }]}><ChatTeardropDots color={theme.colors.warning} size={22} weight="fill" /><Drop color={theme.colors.error} size={22} weight="fill" /></View><Text style={styles.actionTitle}>{hasPendingReview ? 'Pending Review' : 'Donate Now'}</Text><Text style={[styles.actionDesc, hasPendingReview && { color: theme.colors.warning, fontFamily: theme.typography.fontFamilyBold }]}>{hasPendingReview ? 'Feedback Required' : 'See blood requests\naround you'}</Text></Card>
           <Card style={styles.quickActionCard} variant="outlined" onPress={() => navigation.navigate('Donations')}>
-            <View style={[styles.actionIconContainer, { backgroundColor: isEligibilityLoading ? theme.colors.border + '15' : (eligibility?.isEligible ? theme.colors.success + '15' : theme.colors.error + '15') }]}>
-              {isEligibilityLoading ? (
-                <ActivityIndicator size="small" color={theme.colors.textSecondary} />
-              ) : eligibility?.isEligible ? (
-                <ShieldCheck color={theme.colors.success} size={22} weight="fill" />
-              ) : (
-                <Clock color={theme.colors.error} size={22} weight="fill" />
-              )}
-            </View>
+            <View style={[styles.actionIconContainer, { backgroundColor: isEligibilityLoading ? theme.colors.border + '15' : (eligibility?.isEligible ? theme.colors.success + '15' : theme.colors.error + '15') }]}>{isEligibilityLoading ? (<ActivityIndicator size="small" color={theme.colors.textSecondary} />) : eligibility?.isEligible ? (<ShieldCheck color={theme.colors.success} size={22} weight="fill" />) : (<Clock color={theme.colors.error} size={22} weight="fill" />)}</View>
             <Text style={styles.actionTitle}>Eligibility Status</Text>
-            <Text style={[styles.actionDesc, { color: isEligibilityLoading ? theme.colors.textSecondary : (eligibility?.isEligible ? theme.colors.success : theme.colors.error), fontFamily: theme.typography.fontFamilyBold }]}>
-              {isEligibilityLoading 
-                ? 'Checking...' 
-                : eligibility?.isEligible 
-                  ? 'Ready to Donate' 
-                  : eligibility?.nextEligibleDate 
-                    ? `Eligible: ${safeFormat(eligibility.nextEligibleDate, 'MMM d')}` 
-                    : 'Check History'}
-            </Text>
+            <Text style={[styles.actionDesc, { color: isEligibilityLoading ? theme.colors.textSecondary : (eligibility?.isEligible ? theme.colors.success : theme.colors.error), fontFamily: theme.typography.fontFamilyBold }]}>{isEligibilityLoading ? 'Checking...' : eligibility?.isEligible ? 'Ready to Donate' : eligibility?.nextEligibleDate ? `Eligible: ${safeFormat(eligibility.nextEligibleDate, 'MMM d')}` : 'Check History'}</Text>
           </Card>
         </View>
 
         {/* AI Donor Insights */}
-        {insights && (
+        {!!insights && (
           <View style={{ marginBottom: 24 }}>
              {insights.burnoutWarning && (
                 <Card style={{ marginBottom: 12, backgroundColor: theme.colors.warning + '15', borderColor: theme.colors.warning, padding: 0 }} variant="outlined">
@@ -934,7 +915,7 @@ export const DonorHomeScreen = ({ navigation }: { navigation: any }) => {
         </View>
 
         {/* Next Appointment */}
-        {(isDonationsLoading || nextAppt) && (
+        {(!!isDonationsLoading || !!nextAppt) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Your next Appointment</Text>
             {isDonationsLoading ? (
@@ -1052,10 +1033,7 @@ export const DonorHomeScreen = ({ navigation }: { navigation: any }) => {
                   <TouchableOpacity
                     style={[styles.donateNowBtn, hasPendingReview && { backgroundColor: theme.colors.warning }]}
                     onPress={() => hasPendingReview ? navigation.navigate('Donations') : navigation.navigate('BloodRequestDetail', { requestId: request.id })}
-                  >
-                    {hasPendingReview ? <ChatTeardropDots color="white" size={18} weight="fill" /> : <Drop color="white" size={18} weight="fill" />}
-                    <Text style={styles.donateNowText}>{hasPendingReview ? 'Feedback Required' : 'Donate Now'}</Text>
-                  </TouchableOpacity>                </Card>
+                  >{hasPendingReview ? <ChatTeardropDots color="white" size={18} weight="fill" /> : <Drop color="white" size={18} weight="fill" />}<Text style={styles.donateNowText}>{hasPendingReview ? 'Feedback Required' : 'Donate Now'}</Text></TouchableOpacity></Card>
               ))
             ) : (
               <Card style={styles.bloodRequestCard} variant="outlined">
@@ -1108,6 +1086,7 @@ export const DonorHomeScreen = ({ navigation }: { navigation: any }) => {
           </View>
         </View>
       </ScrollView>
+      <FloatingSupport />
     </SafeAreaView>
   );
 };

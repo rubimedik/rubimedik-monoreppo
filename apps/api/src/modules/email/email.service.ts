@@ -48,6 +48,23 @@ export class EmailService {
     return part.charAt(0).toUpperCase() + part.slice(1).replace(/[._-]/g, ' ');
   }
 
+  async sendWelcomeEmail(to: string, name?: string) {
+    const subject = 'Welcome to Rubimedik';
+    const userName = name || this.extractName(to);
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+        <h2 style="color: #D32F2F; text-align: center;">Welcome to Rubimedik</h2>
+        <p>Hello <strong>${userName}</strong>,</p>
+        <p>Thank you for joining Rubimedik Health. We are excited to have you on board!</p>
+        <p>Rubimedik is your all-in-one platform for medical consultations, blood donations, and secure healthcare management.</p>
+        <p>Log in to the app to complete your profile and start exploring our features.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #888; text-align: center;">© 2026 Rubimedik Health. All rights reserved.</p>
+      </div>
+    `;
+    return this.sendEmail(to, subject, html);
+  }
+
   async sendOTP(to: string, otp: string, name?: string) {
     const subject = 'Your Rubimedik Verification Code';
     const userName = name || this.extractName(to);

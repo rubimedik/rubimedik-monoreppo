@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/useAuthStore';
 import { Card } from '../components/Card';
 import { Avatar } from '../components/Avatar';
+import { FloatingSupport } from '../components/FloatingSupport';
 import { 
     Bell, 
     Calendar as CalendarIcon, 
@@ -449,230 +450,43 @@ export const HomeScreen = ({ navigation }: { navigation: any }) => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Avatar name={profile?.fullName || user?.email} size={48} />
-            <View style={{ marginLeft: 12 }}>
-              <Text style={styles.greeting}>Hello, {userName}</Text>
-              <Text style={styles.subGreeting}>How are you feeling today?</Text>
-            </View>
-          </View>
-          <GHPressable 
-              style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.7 }]} 
-              onPress={() => navigation.navigate('Notifications')}
-              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-          >
-              <Bell color={theme.colors.textSecondary} size={24} />
-              {unreadCount > 0 && (
-                  <View style={styles.notificationBadge}>
-                      <Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                  </View>
-              )}
-          </GHPressable>
-
+            <TouchableOpacity 
+                style={{ flexDirection: 'row', alignItems: 'center' }}
+                onPress={() => navigation.navigate('Profile')}
+                activeOpacity={0.7}
+            >
+                <Avatar uri={profile?.avatarUrl} name={profile?.fullName || user?.email} size={48} />
+                <View style={{ marginLeft: 12 }}>
+                    <Text style={styles.greeting}>Hello, {userName}</Text>
+                    <Text style={styles.subGreeting}>How are you feeling today?</Text>
+                </View>
+            </TouchableOpacity>
+            <GHPressable style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.7 }]} onPress={() => navigation.navigate('Notifications')} hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}><Bell color={theme.colors.textSecondary} size={24} />{unreadCount > 0 && (<View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View>)}</GHPressable>
         </View>
 
         {/* Health Banner */}
-        <View style={styles.bannerContainer}>
-          <View style={styles.bannerContent}>
-            <Text style={styles.bannerTitle}>Your Health{'\n'}Matters</Text>
-            <Text style={styles.bannerSubtitle}>Get quick access to licensed{'\n'}specialists—anytime you{'\n'}need care.</Text>
-            <TouchableOpacity style={styles.bannerBtn} onPress={() => navigation.navigate('SearchSpecialists')}>
-              <Text style={styles.bannerBtnText}>Get Medical Help</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.bannerImagePlaceholder}>
-            <View style={styles.robotHead}>
-              <View style={styles.robotEye} />
-              <View style={styles.robotEye} />
-            </View>
-            <View style={styles.robotBody}>
-              <Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold' }}>+</Text>
-            </View>
-          </View>
-        </View>
+        <View style={styles.bannerContainer}><View style={styles.bannerContent}><Text style={styles.bannerTitle}>Your Health{'\n'}Matters</Text><Text style={styles.bannerSubtitle}>Get quick access to licensed{'\n'}specialists—anytime you{'\n'}need care.</Text><TouchableOpacity style={styles.bannerBtn} onPress={() => navigation.navigate('SearchSpecialists')}><Text style={styles.bannerBtnText}>Get Medical Help</Text></TouchableOpacity></View><View style={styles.bannerImagePlaceholder}><View style={styles.robotHead}><View style={styles.robotEye} /><View style={styles.robotEye} /></View><View style={styles.robotBody}><Text style={{ color: 'white', fontSize: 32, fontWeight: 'bold' }}>+</Text></View></View></View>
 
         {/* AI Health Tips */}
-        {healthTips && healthTips.length > 0 && (
-            <View style={{ marginBottom: 32 }}>
-                <TouchableOpacity 
-                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}
-                    onPress={() => setIsTipsExpanded(!isTipsExpanded)}
-                    activeOpacity={0.7}
-                >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Sparkle size={20} color={theme.colors.primary} weight="fill" />
-                        <Text style={styles.sectionTitle}>AI Health Pulse</Text>
-                    </View>
-                    {isTipsExpanded ? <CaretUp size={20} color={theme.colors.textSecondary} /> : <CaretDown size={20} color={theme.colors.textSecondary} />}
-                </TouchableOpacity>
-
-                <Card style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F9FAFB', padding: 12, borderRadius: 16 }}>
-                    {(isTipsExpanded ? healthTips : [healthTips[0]]).map((tip: string, idx: number, arr: any[]) => (
-                        <View key={idx} style={{ flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: (isTipsExpanded && idx !== arr.length - 1) ? 12 : 0 }}>
-                            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: theme.colors.primary + '15', justifyContent: 'center', alignItems: 'center' }}>
-                                <Lightbulb size={14} color={theme.colors.primary} weight="bold" />
-                            </View>
-                            <Text style={{ flex: 1, fontSize: 13, color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyMedium }} numberOfLines={isTipsExpanded ? undefined : 3}>{tip}</Text>
-                            {!isTipsExpanded && healthTips.length > 1 && (
-                                <Text style={{ fontSize: 11, color: theme.colors.textSecondary, fontStyle: 'italic' }}>
-                                    +{healthTips.length - 1} more
-                                </Text>
-                            )}
-                        </View>
-                    ))}
-                </Card>
-            </View>
+        {!!healthTips && healthTips.length > 0 && (
+            <View style={{ marginBottom: 32 }}><TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }} onPress={() => setIsTipsExpanded(!isTipsExpanded)} activeOpacity={0.7}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Sparkle size={20} color={theme.colors.primary} weight="fill" /><Text style={styles.sectionTitle}>AI Health Pulse</Text></View>{isTipsExpanded ? <CaretUp size={20} color={theme.colors.textSecondary} /> : <CaretDown size={20} color={theme.colors.textSecondary} />}</TouchableOpacity><Card style={{ backgroundColor: isDarkMode ? '#1C1C1E' : '#F9FAFB', padding: 12, borderRadius: 16 }}>{(isTipsExpanded ? healthTips : [healthTips[0]]).map((tip: string, idx: number, arr: any[]) => (<View key={idx} style={{ flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: (isTipsExpanded && idx !== arr.length - 1) ? 12 : 0 }}><View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: theme.colors.primary + '15', justifyContent: 'center', alignItems: 'center' }}><Lightbulb size={14} color={theme.colors.primary} weight="bold" /></View><Text style={{ flex: 1, fontSize: 13, color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyMedium }} numberOfLines={isTipsExpanded ? undefined : 3}>{tip}</Text>{!isTipsExpanded && healthTips.length > 1 && (<Text style={{ fontSize: 11, color: theme.colors.textSecondary, fontStyle: 'italic' }}> +{healthTips.length - 1} more</Text>)}</View>))}</Card></View>
         )}
 
         {/* Quick Actions */}
-        <View style={styles.quickActionsGrid}>
-          <View style={styles.quickActionsRow}>
-            <Card style={styles.quickActionCard} variant="outlined" onPress={() => navigation.navigate('SymptomChecker')}>
-              <View style={[styles.actionIconBg, { backgroundColor: theme.colors.primary + '15' }]}>
-                <Sparkle color={theme.colors.primary} size={24} weight="fill" />
-              </View>
-              <Text style={styles.actionTitle}>Symptom Checker</Text>
-              <Text style={styles.actionDesc}>AI-powered triage and tips</Text>
-            </Card>
-            <Card style={styles.quickActionCard} variant="outlined" onPress={() => navigation.navigate('AiAssistant')}>
-              <View style={[styles.actionIconBg, { backgroundColor: theme.colors.success + '15' }]}>
-                <Robot color={theme.colors.success} size={24} weight="fill" />
-              </View>
-              <Text style={styles.actionTitle}>AI Assistant</Text>
-              <Text style={styles.actionDesc}>Ask anything about your health</Text>
-            </Card>
-          </View>
-        </View>
+        <View style={styles.quickActionsGrid}><View style={styles.quickActionsRow}><Card style={styles.quickActionCard} variant="outlined" onPress={() => navigation.navigate('SymptomChecker')}><View style={[styles.actionIconBg, { backgroundColor: theme.colors.primary + '15' }]}><Sparkle color={theme.colors.primary} size={24} weight="fill" /></View><Text style={styles.actionTitle}>Symptom Checker</Text><Text style={styles.actionDesc}>AI-powered triage and tips</Text></Card><Card style={styles.quickActionCard} variant="outlined" onPress={() => navigation.navigate('AiAssistant')}><View style={[styles.actionIconBg, { backgroundColor: theme.colors.success + '15' }]}><Robot color={theme.colors.success} size={24} weight="fill" /></View><Text style={styles.actionTitle}>AI Assistant</Text><Text style={styles.actionDesc}>Ask anything about your health</Text></Card></View></View>
 
         {/* Recently Viewed */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Featured Specialists</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
-            {isSpecialistsLoading ? (
-               <ActivityIndicator color={theme.colors.primary} />
-            ) : specialists?.slice(0, 5).map((spec: any, idx: number) => {
-                const specName = spec.user?.fullName || spec.user?.email || 'Specialist';
-                return (
-                    <TouchableOpacity key={spec.id} style={styles.recentSpecialist} onPress={() => navigation.navigate('SpecialistProfile', { specialistId: spec.id })}>
-                        <Avatar name={specName} size={56} />
-                        <View style={{ marginLeft: 12 }}>
-                            <Text style={styles.recentName}>{spec.user?.fullName || spec.user?.email?.split('@')[0] || 'Dr. Specialist'}</Text>
-                            <Text style={styles.recentSpecialty}>{spec.specialty}</Text>
-                            <Text style={styles.recentRating}>⭐ {spec.rating?.toFixed(1) || '0.0'}</Text>
-                        </View>
-                    </TouchableOpacity>
-                );
-            })}
-          </ScrollView>
-        </View>
+        <View style={styles.section}><Text style={styles.sectionTitle}>Featured Specialists</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>{isSpecialistsLoading ? (<ActivityIndicator color={theme.colors.primary} />) : specialists?.slice(0, 5).map((spec: any, idx: number) => { const specName = spec.user?.fullName || spec.user?.email || 'Specialist'; return (<TouchableOpacity key={spec.id} style={styles.recentSpecialist} onPress={() => navigation.navigate('SpecialistProfile', { specialistId: spec.id })}><Avatar name={specName} size={56} /><View style={{ marginLeft: 12 }}><Text style={styles.recentName}>{spec.user?.fullName || spec.user?.email?.split('@')[0] || 'Dr. Specialist'}</Text><Text style={styles.recentSpecialty}>{spec.specialty}</Text><Text style={styles.recentRating}>⭐ {spec.rating?.toFixed(1) || '0.0'}</Text></View></TouchableOpacity>); })}</ScrollView></View>
 
         {/* Your next Appointment */}
-        {nextAppt && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Your next Appointment</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Appointments')}>
-                <Text style={styles.seeAll}>See All</Text>
-              </TouchableOpacity>
-            </View>
-            {isApptsLoading ? (
-              <ActivityIndicator color={theme.colors.primary} />
-            ) : (
-              <Card 
-                style={styles.nextAppointmentCard} 
-                variant="outlined"
-                onPress={() => navigation.navigate('ConsultationDetail', { consultationId: nextAppt.consultation?.id })}
-              >
-                <View style={styles.appointmentHeader}>
-                  <Avatar name={nextAppt.consultation?.specialist?.fullName || nextAppt.consultation?.specialist?.user?.fullName || nextAppt.consultation?.specialist?.user?.email} size={48} />
-                  <View style={{ marginLeft: 12, flex: 1 }}>
-                    <Text style={styles.apptSpecialistName}>
-                        {nextAppt.consultation?.specialist?.fullName || nextAppt.consultation?.specialist?.user?.fullName || nextAppt.consultation?.specialist?.email?.split('@')[0] || 'Dr. Specialist'}
-                    </Text>
-                    <Text style={styles.apptSpecialty}>
-                        {nextAppt.consultation?.specialist?.specialistProfile?.specialty || nextAppt.consultation?.specialist?.specialty || 'General Practitioner'}
-                    </Text>
-                  </View>
-                  <TouchableOpacity 
-                    onPress={() => navigation.navigate('Chat', { roomId: nextAppt.consultation?.id, otherUserName: nextAppt.consultation?.specialist?.fullName || nextAppt.consultation?.specialist?.user?.fullName })}
-                    style={{ padding: 10, backgroundColor: theme.colors.primary + '15', borderRadius: 12 }}
-                  >
-                    <ChatTeardropDots size={24} color={theme.colors.primary} weight="fill" />
-                  </TouchableOpacity>
-                </View>
-                
-                <View style={styles.apptDetailsGrid}>
-                  <View style={styles.apptDetailItem}>
-                    <Text style={styles.apptDetailLabel}>Type</Text>
-                    <Text style={styles.apptDetailValue}><VideoCamera size={12} /> {nextAppt.consultation?.consultationType || 'Online'}</Text>
-                  </View>
-                  <View style={styles.apptDetailDivider} />
-                  <View style={styles.apptDetailItem}>
-                    <Text style={styles.apptDetailLabel}>Date</Text>
-                    <Text style={styles.apptDetailValue}>{safeFormat(nextAppt.scheduledAt, 'MMM do')}</Text>
-                  </View>
-                  <View style={styles.apptDetailDivider} />
-                  <View style={styles.apptDetailItem}>
-                    <Text style={styles.apptDetailLabel}>Time</Text>
-                    <Text style={styles.apptDetailValue}>{safeFormat(nextAppt.scheduledAt, 'p')}</Text>
-                  </View>
-                </View>
-                
-                <View style={{ flexDirection: 'row', gap: 12 }}>
-                  <TouchableOpacity 
-                    style={[styles.cancelApptBtn, { flex: 1, flexDirection: 'row', gap: 8, backgroundColor: theme.colors.error + '10', borderColor: theme.colors.error + '20', borderWidth: 1 }]}
-                    onPress={() => navigation.navigate('ConsultationDetail', { consultationId: nextAppt.consultation?.id })}
-                  >
-                    <XCircle size={18} color={theme.colors.error} weight="bold" />
-                    <Text style={[styles.cancelApptText, { color: theme.colors.error }]}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.cancelApptBtn, { flex: 1, flexDirection: 'row', gap: 8, backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '20', borderWidth: 1 }]}
-                    onPress={() => navigation.navigate('ConsultationDetail', { consultationId: nextAppt.consultation?.id })}
-                  >
-                    <CalendarPlus size={18} color={theme.colors.primary} weight="bold" />
-                    <Text style={[styles.cancelApptText, { color: theme.colors.primary }]}>Reschedule</Text>
-                  </TouchableOpacity>
-                </View>
-              </Card>
-            )}
-          </View>
+        {!!nextAppt && (
+          <View style={styles.section}><View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your next Appointment</Text><TouchableOpacity onPress={() => navigation.navigate('Appointments')}><Text style={styles.seeAll}>See All</Text></TouchableOpacity></View>{isApptsLoading ? (<ActivityIndicator color={theme.colors.primary} />) : (<Card style={styles.nextAppointmentCard} variant="outlined" onPress={() => navigation.navigate('ConsultationDetail', { consultationId: nextAppt.consultation?.id })}><View style={styles.appointmentHeader}><Avatar name={nextAppt.consultation?.specialist?.fullName || nextAppt.consultation?.specialist?.user?.fullName || nextAppt.consultation?.specialist?.user?.email} size={48} /><View style={{ marginLeft: 12, flex: 1 }}><Text style={styles.apptSpecialistName}>{nextAppt.consultation?.specialist?.fullName || nextAppt.consultation?.specialist?.user?.fullName || nextAppt.consultation?.specialist?.email?.split('@')[0] || 'Dr. Specialist'}</Text><Text style={styles.apptSpecialty}>{nextAppt.consultation?.specialist?.specialistProfile?.specialty || nextAppt.consultation?.specialist?.specialty || 'General Practitioner'}</Text></View><TouchableOpacity onPress={() => navigation.navigate('Chat', { roomId: nextAppt.consultation?.id, otherUserName: nextAppt.consultation?.specialist?.fullName || nextAppt.consultation?.specialist?.user?.fullName })} style={{ padding: 10, backgroundColor: theme.colors.primary + '15', borderRadius: 12 }}><ChatTeardropDots size={24} color={theme.colors.primary} weight="fill" /></TouchableOpacity></View><View style={styles.apptDetailsGrid}><View style={styles.apptDetailItem}><Text style={styles.apptDetailLabel}>Type</Text><Text style={styles.apptDetailValue}><VideoCamera size={12} /> {nextAppt.consultation?.consultationType || 'Online'}</Text></View><View style={styles.apptDetailDivider} /><View style={styles.apptDetailItem}><Text style={styles.apptDetailLabel}>Date</Text><Text style={styles.apptDetailValue}>{safeFormat(nextAppt.scheduledAt, 'MMM do')}</Text></View><View style={styles.apptDetailDivider} /><View style={styles.apptDetailItem}><Text style={styles.apptDetailLabel}>Time</Text><Text style={styles.apptDetailValue}>{safeFormat(nextAppt.scheduledAt, 'p')}</Text></View></View><View style={{ flexDirection: 'row', gap: 12 }}><TouchableOpacity style={[styles.cancelApptBtn, { flex: 1, flexDirection: 'row', gap: 8, backgroundColor: theme.colors.error + '10', borderColor: theme.colors.error + '20', borderWidth: 1 }]} onPress={() => navigation.navigate('ConsultationDetail', { consultationId: nextAppt.consultation?.id })}><XCircle size={18} color={theme.colors.error} weight="bold" /><Text style={[styles.cancelApptText, { color: theme.colors.error }]}>Cancel</Text></TouchableOpacity><TouchableOpacity style={[styles.cancelApptBtn, { flex: 1, flexDirection: 'row', gap: 8, backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '20', borderWidth: 1 }]} onPress={() => navigation.navigate('ConsultationDetail', { consultationId: nextAppt.consultation?.id })}><CalendarPlus size={18} color={theme.colors.primary} weight="bold" /><Text style={[styles.cancelApptText, { color: theme.colors.primary }]}>Reschedule</Text></TouchableOpacity></View></Card>)}</View>
         )}
 
         {/* Nearby Specialists */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Available Specialists</Text>
-          <View style={styles.nearbyGrid}>
-            {isSpecialistsLoading ? (
-              <ActivityIndicator size="small" color={theme.colors.primary} />
-            ) : (
-              specialists?.slice(0, 4).map((spec: any) => {
-                const prices = spec.consultationPackages?.map((p: any) => Number(p.price)) || [10000];
-                const minPrice = Math.min(...prices);
-                const specName = spec.user?.fullName || spec.user?.email || 'Dr. Specialist';
-                
-                return (
-                    <Card key={spec.id} style={styles.nearbyCard} variant="outlined" onPress={() => navigation.navigate('SpecialistProfile', { specialistId: spec.id })}>
-                    <Avatar name={specName} size={64} style={{ alignSelf: 'center', marginBottom: 12 }} />
-                    <Text style={styles.nearbyName}>{spec.user?.fullName || spec.user?.email?.split('@')[0] || 'Dr. Specialist'}</Text>
-                    <Text style={styles.nearbySpecialty}>{spec.specialty} <Text style={styles.nearbyRating}>⭐ {spec.rating?.toFixed(1) || '0.0'}</Text></Text>
-                    
-                    <View style={styles.nearbyFooter}>
-                        <View style={{ flex: 1 }}>
-                        <Text style={styles.nearbyHoursLabel}>Starting from:</Text>
-                        <Text style={styles.nearbyHoursValue}>₦{minPrice.toLocaleString()}</Text>
-                        </View>
-                        <View style={styles.nearbyArrowBtn}>
-                        <ArrowRight color="white" size={20} />
-                        </View>
-                    </View>
-                    </Card>
-                );
-              })
-            )}
-          </View>
-        </View>
+        <View style={styles.section}><Text style={styles.sectionTitle}>Available Specialists</Text><View style={styles.nearbyGrid}>{isSpecialistsLoading ? (<ActivityIndicator size="small" color={theme.colors.primary} />) : (specialists?.slice(0, 4).map((spec: any) => { const prices = spec.consultationPackages?.map((p: any) => Number(p.price)) || [10000]; const minPrice = Math.min(...prices); const specName = spec.user?.fullName || spec.user?.email || 'Dr. Specialist'; return (<Card key={spec.id} style={styles.nearbyCard} variant="outlined" onPress={() => navigation.navigate('SpecialistProfile', { specialistId: spec.id })}><Avatar name={specName} size={64} style={{ alignSelf: 'center', marginBottom: 12 }} /><Text style={styles.nearbyName}>{spec.user?.fullName || spec.user?.email?.split('@')[0] || 'Dr. Specialist'}</Text><Text style={styles.nearbySpecialty}>{spec.specialty} <Text style={styles.nearbyRating}>⭐ {spec.rating?.toFixed(1) || '0.0'}</Text></Text><View style={styles.nearbyFooter}><View style={{ flex: 1 }}><Text style={styles.nearbyHoursLabel}>Starting from:</Text><Text style={styles.nearbyHoursValue}>₦{minPrice.toLocaleString()}</Text></View><View style={styles.nearbyArrowBtn}><ArrowRight color="white" size={20} /></View></View></Card>); }))}</View></View>
       </ScrollView>
+      <FloatingSupport />
     </SafeAreaView>
   );
 };

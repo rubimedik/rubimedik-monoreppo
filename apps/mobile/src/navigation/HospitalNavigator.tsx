@@ -42,6 +42,9 @@ import { TransactionsHistoryScreen } from '../screens/TransactionsHistoryScreen'
 import { TransactionDetailScreen } from '../screens/TransactionDetailScreen';
 import { ConsultationDetailScreen } from '../screens/ConsultationDetailScreen';
 import { BloodRequestPickerScreen } from '../screens/BloodRequestPickerScreen';
+import { ChatScreen } from '../screens/ChatScreen';
+import { SupportTicketListScreen } from '../screens/SupportTicketListScreen';
+import { CreateSupportTicketScreen } from '../screens/CreateSupportTicketScreen';
 import {
   House as HomeIcon,
   User as UserIcon,
@@ -88,6 +91,9 @@ export type HospitalStackParamList = {
   SavedCards: undefined;
   RecentActivities: { type: 'hospital' | 'specialist' };
   BloodRequestPicker: undefined;
+  SupportTickets: undefined;
+  CreateSupportTicket: { category?: any; subject?: string; consultationId?: string } | undefined;
+  Chat: { roomId: string; otherUserName: string; otherPhone?: string; isSupport?: boolean; ticketStatus?: string };
   HospitalReviews: { hospitalId: string; hospitalName?: string };
   ReviewForm: { requestId: string; hospitalId: string; reviewId?: string };
   TransactionHistory: undefined;
@@ -189,7 +195,10 @@ export const HospitalNavigator = () => {
       <Stack.Screen name="Payment" component={PaymentScreen} />
       <Stack.Screen name="TopUp" component={TopUpScreen} />
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+      <Stack.Screen name="SupportTickets" component={SupportTicketListScreen} />
+      <Stack.Screen name="CreateSupportTicket" component={CreateSupportTicketScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen name="HospitalProfileUpdate" component={HospitalProfileUpdateScreen} />
       <Stack.Screen name="BloodRequestForm" component={BloodRequestFormScreen} />
       <Stack.Screen name="Inventory" component={InventoryScreen} />

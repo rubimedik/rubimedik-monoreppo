@@ -298,11 +298,16 @@ export class AiService {
   async generatePostDonationRecovery() {
       try {
           const prompt = `Generate a 48-hour post-blood-donation recovery tracker/guide.
-          Format as a clean, engaging text block (bullet points are fine).
-          Include guidelines for Hour 0-4, Hour 4-24, Day 2, and Day 3.`;
+          Format as a clean, engaging HTML block. 
+          Use <h3> for time headers, <p> for descriptions, and <ul>/<li> for bullet points.
+          Include guidelines for Hour 0-4, Hour 4-24, Day 2, and Day 3.
+          Do NOT include <html> or <body> tags, just the inner content.`;
           const result = await this.model.generateContent(prompt);
           const response = await result.response;
-          return response.text().trim();
+          let html = response.text().trim();
+          // Strip markdown code blocks if present
+          html = html.replace(/```html/g, '').replace(/```/g, '').trim();
+          return html;
       } catch (error) {
           return "Keep your bandage on for 4 hours, drink extra fluids, and avoid heavy lifting today.";
       }
@@ -403,5 +408,66 @@ export class AiService {
       } catch (error) {
           return { isGhost: false, reason: '' };
       }
+  }
+
+  async generateSupportResponse(ticketData: any, userMessage: string) {
+    try {
+      this.logger.log(`AI Support Input: User=${ticketData.user?.email}, Msg="${userMessage}"`);
+      const prompt = `You are a helpful customer support AI for RubiMedik Health.
+      User Details: ${JSON.stringify(ticketData.user)}
+      Ticket Category: ${ticketData.category}
+      Ticket Subject: ${ticketData.subject}
+      
+      About RubiMedik - Comprehensive Guide:
+      1. MEDICAL CONSULTATIONS:
+         - Flow: Patient searches for a specialist -> Selects a package -> Chooses date/time -> Pays -> Confirms booking.
+         - Packages: Quick (15m), Standard (30m), and Premium (60m). Prices range from ₦10,000 to ₦50,000 depending on the specialist.
+         - Communication: Integrated Video Call and Chat. Video calls are available 10 minutes before the scheduled time.
+         - Payouts: Specialists receive payments 48 hours AFTER marking a consultation as complete (to allow for quality checks/disputes).
+         - Quality: Patients and Specialists must provide feedback after every session.
+
+      2. BLOOD DONATIONS:
+         - Requirements (Donors): Must be 18-65 years old, weigh at least 50kg, and pass the AI health questionnaire. No strenuous exercise on donation day.
+         - Requirements (Hospitals): Must provide valid medical registration (KYC) and be approved by admins.
+         - Platform Policy: Hospitals operate on a "40% Share" model. For every 5 units of blood received through RubiMedik, 2 units are reserved for the platform's emergency inventory.
+         - Process: Hospital posts a request -> Donor finds and books -> Donor visits hospital -> Hospital verifies donation via unique token.
+
+      3. SPECIALIST REQUIREMENTS:
+         - Must provide a valid License Number and Professional Certification.
+         - Profiles must be 100% complete and verified by RubiMedik Admins before appearing in search results.
+
+      4. FINANCIALS & REWARDS:
+         - Wallet: Users can fund their wallet via Card or Bank Transfer. 
+         - Referrals: Earn 500 points for every successfully verified user you invite.
+         - Payouts: Minimum withdrawal for specialists is ₦5,000.
+
+      5. PLATFORM DO'S AND DON'TS:
+         - DO: Keep all communications and payments on the platform to stay protected.
+         - DO: Report any specialist/patient asking for off-platform contact.
+         - DON'T: Share personal contact details in chat (AI will flag this).
+         - DON'T: Mark consultations complete if service wasn't fully rendered.
+
+      Guidelines:
+      - Answer the user's question concisely based on the detailed info above.
+      - If you cannot resolve the issue or if the user asks for a "human", "agent", "real person", or "admin", end your response with: "[ESCALATE]".
+      - If the user is reporting a medical emergency, tell them to visit the nearest physical hospital immediately and then end with "[ESCALATE]".
+      - Be empathetic, professional, and always encourage using platform-native features.
+
+      User Message: "${userMessage}"`;
+
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      const reply = response.text().trim();
+      
+      this.logger.log(`AI Support Output: "${reply.substring(0, 50)}..." Escalated=${reply.includes('[ESCALATE]')}`);
+
+      return {
+        reply: reply.replace('[ESCALATE]', '').trim(),
+        shouldEscalate: reply.includes('[ESCALATE]')
+      };
+    } catch (error: any) {
+      this.logger.error('AI Support Response failed: ' + error.message);
+      return { reply: "I'm sorry, I'm having trouble processing your request. One of our agents will be with you shortly.", shouldEscalate: true };
+    }
   }
 }

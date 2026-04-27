@@ -201,11 +201,13 @@ export const ChatListScreen = () => {
         onPress={() => navigation.navigate('Chat', { 
             roomId: item.id, 
             otherUserName: partnerName,
-            otherPhone: item.partner.phone
+            otherPhone: item.partner.phone,
+            isSupport: item.isSupport,
+            ticketStatus: item.ticketStatus
         })}
       >
         <View style={styles.avatarContainer}>
-          <Avatar name={partnerName} size={48} />
+          <Avatar uri={item.partner?.avatarUrl} name={partnerName} size={48} />
           <View style={styles.statusDot} />
         </View>
         
@@ -226,15 +228,7 @@ export const ChatListScreen = () => {
                   hasUnread ? { color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilySemiBold } : { color: theme.colors.textSecondary }
                 ]} 
                 numberOfLines={1}
-            >
-              {item.lastMessage?.senderId === user?.id && (
-                  <View style={{ marginRight: 4, marginTop: 2 }}>
-                    {renderStatusTicks(item.lastMessage)}
-                  </View>
-              )}
-              {item.lastMessage?.senderId === user?.id ? 'You: ' : ''}
-              {item.lastMessage?.content || 'No messages yet'}
-            </Text>
+            >{item.lastMessage?.senderId === user?.id ? 'You: ' : ''}{item.lastMessage?.content || 'No messages yet'}</Text>
             
             {hasUnread && (
                 <View style={styles.unreadBadge}>

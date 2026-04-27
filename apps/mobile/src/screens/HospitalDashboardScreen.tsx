@@ -19,6 +19,7 @@ import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
 import { Avatar } from '../components/Avatar';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { FloatingSupport } from '../components/FloatingSupport';
 import { Plus, Drop, UsersThree, FileText, CaretRight, Bell, FirstAidKit, Warning, Calendar as CalendarIcon, CheckCircle, WarningCircle, PenNib, BookOpen, X, User as UserIcon, SealCheck, Sparkle, ChatTeardropDots } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -381,248 +382,21 @@ export const HospitalDashboardScreen = ({ navigation }: { navigation: any }) => 
       <ScrollView 
         showsVerticalScrollIndicator={false} 
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
-        }
-      >
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Dashboard</Text>
-            <View style={styles.hospitalHeaderRow}>
-               <Text style={styles.userName}>{profile?.hospitalName || user?.email.split('@')[0]}</Text>
-               {profile?.isApproved && (
-                 <SealCheck size={18} color={theme.colors.success} weight="fill" />
-               )}
-            </View>
-          </View>
-          <GHPressable 
-            style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.7 }]} 
-            onPress={() => navigation.navigate('Notifications')}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-          >
-            <Bell color={theme.colors.textSecondary} size={24} />
-            {unreadCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-              </View>
-            )}
-          </GHPressable>
-        </View>
-
-        {(!termsAccepted && profile?.isApproved) && (
-          <Card 
-            style={{ marginBottom: 24, backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary }} 
-            variant="outlined"
-          >
-            <View style={{ padding: 4 }}>
-              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-                <FileText size={24} color={theme.colors.primary} weight="fill" />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyBold, fontSize: 14 }}>Terms & Agreement</Text>
-                  <Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 }}>You must agree to the blood reservation policy (4 per 10 units) to receive blood.</Text>
-                </View>
-              </View>
-              <PrimaryButton 
-                label="Accept Terms" 
-                size="small" 
-                onPress={() => {
-                    Alert.alert(
-                        'Terms of Service',
-                        'By accepting, you agree that for every 10 units of blood received through RubiMedik, 4 units shall be reserved for RubiMedik and managed as platform inventory.',
-                        [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'I Agree', onPress: () => acceptTermsMutation.mutate() }
-                        ]
-                    );
-                }}
-                isLoading={acceptTermsMutation.isPending}
-              />
-            </View>
-          </Card>
-        )}
-
-        {hasPendingReview && (
-          <Card
-            style={{ marginBottom: 24, backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary }}
-            variant="outlined"
-            onPress={() => navigation.navigate('HospitalDonationMatches', { initialTab: 'COMPLETED' })}
-            >
-            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 4 }}>              <ChatTeardropDots size={24} color={theme.colors.primary} weight="fill" />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyBold, fontSize: 14 }}>Feedback Required</Text>
-                <Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 }}>You have {pendingReviews.length} pending donor review{pendingReviews.length > 1 ? 's' : ''}. Please complete them to maintain quality.</Text>
-              </View>
-              <CaretRight size={20} color={theme.colors.textSecondary} />
-            </View>
-          </Card>
-        )}
-
-        {!profile?.isApproved && (
-          <Card 
-            style={{ marginBottom: 24, backgroundColor: theme.colors.warning + '15', borderColor: theme.colors.warning }} 
-            variant="outlined"
-            onPress={() => navigation.navigate('HospitalProfileUpdate')}
-          >
-            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 4 }}>
-              <WarningCircle size={24} color={theme.colors.warning} weight="fill" />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyBold, fontSize: 14 }}>Verification Pending</Text>
-                <Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 }}>Unlock all features by completing your profile.</Text>
-              </View>
-              <CaretRight size={20} color={theme.colors.textSecondary} />
-            </View>
-          </Card>
-        )}
-
-        <View style={styles.statsGrid}>
-          <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: theme.colors.primary }]}>
-              <View style={styles.statIconContainer}>
-                <Drop color="white" size={20} weight="fill" />
-              </View>
-              <View>
-                <Text style={styles.statValue}>{stats?.activeRequests || 0}</Text>
-                <Text style={styles.statLabel}>Active Requests</Text>
-              </View>
-            </View>
-
-            <View style={[styles.statCard, { backgroundColor: theme.colors.warning }]}>
-              <View style={styles.statIconContainer}>
-                <Warning color="white" size={20} weight="fill" />
-              </View>
-              <View>
-                <Text style={styles.statValue}>{stats?.urgentRequestsNearby || 0}</Text>
-                <Text style={styles.statLabel}>Urgent Nearby</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: theme.colors.success }]}>
-              <View style={styles.statHeader}>
-                <View style={styles.statIconContainer}>
-                  <CalendarIcon color="white" size={20} weight="fill" />
-                </View>
-                <TouchableOpacity 
-                  style={styles.filterBadge}
-                  onPress={() => setIsFilterModalVisible(true)}
-                >
-                  <Text style={styles.filterText}>{dateFilter}</Text>
-                  <CaretRight size={10} color="white" style={{ transform: [{ rotate: '90deg' }] }} />
-                </TouchableOpacity>
-              </View>
-              <View>
-                <Text style={styles.statValue}>{stats?.donationsReceived || 0}</Text>
-                <Text style={styles.statLabel}>Donations Received</Text>
-              </View>
-            </View>
-
-            <View style={[styles.statCard, { backgroundColor: '#6366f1' }]}>
-              <View style={styles.statIconContainer}>
-                <Sparkle color="white" size={20} weight="fill" />
-              </View>
-              <View>
-                <Text style={styles.statValue}>{stats?.reservedUnits || 0}</Text>
-                <Text style={styles.statLabel}>Platform Reserve</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* AI Inventory Prediction */}
-        {prediction && prediction.daysRemaining < 7 && (
-            <Card style={{ marginBottom: 24, backgroundColor: isDarkMode ? '#3E2723' : '#FFF3E0', borderColor: isDarkMode ? '#4E342E' : '#FFE0B2', padding: 0 }} variant="outlined">
-                <TouchableOpacity 
-                    style={{ flexDirection: 'row', gap: 12, padding: 16, alignItems: 'center' }}
-                    onPress={() => setIsAiAlertCollapsed(!isAiAlertCollapsed)}
-                >
-                    <Sparkle size={24} color="#EF6C00" weight="fill" />
-                    <View style={{ flex: 1 }}>
-                        <Text style={{ color: '#E65100', fontFamily: theme.typography.fontFamilyBold, fontSize: 14 }}>AI Inventory Alert</Text>
-                        {!isAiAlertCollapsed && (
-                            <Text style={{ color: isDarkMode ? 'white' : '#4E342E', fontSize: 12, marginTop: 4, fontFamily: theme.typography.fontFamily }}>Click to expand details</Text>
-                        )}
-                    </View>
-                    <CaretRight size={20} color="#EF6C00" style={{ transform: [{ rotate: isAiAlertCollapsed ? '90deg' : '0deg' }] }} />
-                </TouchableOpacity>
-
-                {isAiAlertCollapsed && (
-                    <View style={{ padding: 16, paddingTop: 0 }}>
-                        <Text style={{ color: isDarkMode ? 'white' : '#4E342E', fontSize: 13, lineHeight: 20, fontFamily: theme.typography.fontFamily }}>{prediction.alertMessage}</Text>
-                        <TouchableOpacity 
-                            style={{ marginTop: 16, alignSelf: 'flex-start', backgroundColor: '#EF6C00', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 }}
-                            onPress={() => navigation.navigate('BloodRequestForm', { bloodType: 'O-', urgency: 'CRITICAL' })}
-                        >
-                            <Text style={{ color: 'white', fontSize: 13, fontFamily: theme.typography.fontFamilyBold }}>Send Urgent Request</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-            </Card>
-        )}
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
+      ><View style={styles.header}>
             <TouchableOpacity 
-                style={[styles.quickAction, hasPendingReview && pendingReviews.length >= 3 && { opacity: 0.5 }]} 
-                onPress={() => {
-                    if (hasPendingReview && pendingReviews.length >= 3) {
-                        Alert.alert('Action Required', 'Please complete your pending donor reviews before submitting new blood requests.');
-                    } else {
-                        navigation.navigate('BloodRequestForm');
-                    }
-                }}
+                style={{ flex: 1 }}
+                onPress={() => navigation.navigate('Profile')}
+                activeOpacity={0.7}
             >
-              <Plus size={24} color={theme.colors.primary} weight="bold" />
-              <Text style={styles.quickActionText}>Request</Text>
+                <Text style={styles.greeting}>Dashboard</Text>
+                <View style={styles.hospitalHeaderRow}>
+                    <Text style={styles.userName}>{profile?.hospitalName || user?.email.split('@')[0]}</Text>
+                    {profile?.isApproved && (<SealCheck size={18} color={theme.colors.success} weight="fill" />)}
+                </View>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('FulfilledRequests')}>
-              <CheckCircle size={24} color={theme.colors.success} weight="bold" />
-              <Text style={styles.quickActionText}>Fulfilled</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('Inventory')}>
-              <Drop size={24} color={theme.colors.error} weight="bold" />
-              <Text style={styles.quickActionText}>Inventory</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={[styles.section, { marginTop: 24 }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            {activities?.length > 5 && (
-              <TouchableOpacity onPress={() => navigation.navigate('RecentActivities', { type: 'hospital' })}>
-                <Text style={styles.seeAll}>View All</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          {activitiesLoading ? (
-            <ActivityIndicator color={theme.colors.primary} />
-          ) : activities?.length > 0 ? (
-            activities.slice(0, 5).map((activity: any) => {
-              const themeInfo = getActivityIcon(activity.type);
-              const Icon = themeInfo.icon;
-              return (
-                <TouchableOpacity 
-                  key={activity.id} 
-                  onPress={() => navigateToActivity(activity.title, activity.type, new Date(activity.createdAt || activity.date).toLocaleString(), activity.description)}
-                  style={styles.activityItem}
-                >
-                  <View style={[styles.activityIcon, { backgroundColor: themeInfo.bg }]}>
-                    <Icon size={20} color={themeInfo.color} weight="fill" />
-                  </View>
-                  <View style={styles.activityContent}>
-                    <Text style={styles.activityTitle}>{activity.title}</Text>
-                    <Text style={styles.activityTime}>{new Date(activity.createdAt || activity.date).toLocaleString()}</Text>
-                  </View>
-                  <CaretRight size={16} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-              );
-            })
-          ) : (
-            <Text style={{ color: theme.colors.textSecondary, textAlign: 'center', marginTop: 20 }}>No recent activity logged.</Text>
-          )}
-        </View>
+            <GHPressable style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.7 }]} onPress={() => navigation.navigate('Notifications')} hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}><Bell color={theme.colors.textSecondary} size={24} />{unreadCount > 0 && (<View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View>)}</GHPressable>
+        </View>{(!termsAccepted && !!profile?.isApproved) && (<Card style={{ marginBottom: 24, backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary }} variant="outlined"><View style={{ padding: 4 }}><View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: 12 }}><FileText size={24} color={theme.colors.primary} weight="fill" /><View style={{ flex: 1 }}><Text style={{ color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyBold, fontSize: 14 }}>Terms & Agreement</Text><Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 }}>You must agree to the blood reservation policy (4 per 10 units) to receive blood.</Text></View></View><PrimaryButton label="Accept Terms" size="small" onPress={() => { Alert.alert('Terms of Service', 'By accepting, you agree that for every 10 units of blood received through RubiMedik, 4 units shall be reserved for RubiMedik and managed as platform inventory.', [{ text: 'Cancel', style: 'cancel' }, { text: 'I Agree', onPress: () => acceptTermsMutation.mutate() }]); }} isLoading={acceptTermsMutation.isPending} /></View></Card>)}{!!hasPendingReview && (<Card style={{ marginBottom: 24, backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary }} variant="outlined" onPress={() => navigation.navigate('HospitalDonationMatches', { initialTab: 'COMPLETED' })}><View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 4 }}><ChatTeardropDots size={24} color={theme.colors.primary} weight="fill" /><View style={{ flex: 1 }}><Text style={{ color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyBold, fontSize: 14 }}>Feedback Required</Text><Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 }}>You have {pendingReviews.length} pending donor review{pendingReviews.length > 1 ? 's' : ''}. Please complete them to maintain quality.</Text></View><CaretRight size={20} color={theme.colors.textSecondary} /></View></Card>)}{!profile?.isApproved && (<Card style={{ marginBottom: 24, backgroundColor: theme.colors.warning + '15', borderColor: theme.colors.warning }} variant="outlined" onPress={() => navigation.navigate('HospitalProfileUpdate')}><View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 4 }}><WarningCircle size={24} color={theme.colors.warning} weight="fill" /><View style={{ flex: 1 }}><Text style={{ color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyBold, fontSize: 14 }}>Verification Pending</Text><Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 }}>Unlock all features by completing your profile.</Text></View><CaretRight size={20} color={theme.colors.textSecondary} /></View></Card>)}<View style={styles.statsGrid}><View style={styles.statsRow}><View style={[styles.statCard, { backgroundColor: theme.colors.primary }]}><View style={styles.statIconContainer}><Drop color="white" size={20} weight="fill" /></View><View><Text style={styles.statValue}>{stats?.activeRequests || 0}</Text><Text style={styles.statLabel}>Active Requests</Text></View></View><View style={[styles.statCard, { backgroundColor: theme.colors.warning }]}><View style={styles.statIconContainer}><Warning color="white" size={20} weight="fill" /></View><View><Text style={styles.statValue}>{stats?.urgentRequestsNearby || 0}</Text><Text style={styles.statLabel}>Urgent Nearby</Text></View></View></View><View style={styles.statsRow}><View style={[styles.statCard, { backgroundColor: theme.colors.success }]}><View style={styles.statHeader}><View style={styles.statIconContainer}><CalendarIcon color="white" size={20} weight="fill" /></View><TouchableOpacity style={styles.filterBadge} onPress={() => setIsFilterModalVisible(true)}><Text style={styles.filterText}>{dateFilter}</Text><CaretRight size={10} color="white" style={{ transform: [{ rotate: '90deg' }] }} /></TouchableOpacity></View><View><Text style={styles.statValue}>{stats?.donationsReceived || 0}</Text><Text style={styles.statLabel}>Donations Received</Text></View></View><View style={[styles.statCard, { backgroundColor: '#6366f1' }]}><View style={styles.statIconContainer}><Sparkle color="white" size={20} weight="fill" /></View><View><Text style={styles.statValue}>{stats?.reservedUnits || 0}</Text><Text style={styles.statLabel}>Platform Reserve</Text></View></View></View></View>{prediction && prediction.daysRemaining < 7 && (<Card style={{ marginBottom: 24, backgroundColor: isDarkMode ? '#3E2723' : '#FFF3E0', borderColor: isDarkMode ? '#4E342E' : '#FFE0B2', padding: 0 }} variant="outlined"><TouchableOpacity style={{ flexDirection: 'row', gap: 12, padding: 16, alignItems: 'center' }} onPress={() => setIsAiAlertCollapsed(!isAiAlertCollapsed)}><Sparkle size={24} color="#EF6C00" weight="fill" /><View style={{ flex: 1 }}><Text style={{ color: '#E65100', fontFamily: theme.typography.fontFamilyBold, fontSize: 14 }}>AI Inventory Alert</Text>{!isAiAlertCollapsed && (<Text style={{ color: isDarkMode ? 'white' : '#4E342E', fontSize: 12, marginTop: 4, fontFamily: theme.typography.fontFamily }}>Click to expand details</Text>)}</View><CaretRight size={20} color="#EF6C00" style={{ transform: [{ rotate: isAiAlertCollapsed ? '90deg' : '0deg' }] }} /></TouchableOpacity>{isAiAlertCollapsed && (<View style={{ padding: 16, paddingTop: 0 }}><Text style={{ color: isDarkMode ? 'white' : '#4E342E', fontSize: 13, lineHeight: 20, fontFamily: theme.typography.fontFamily }}>{prediction.alertMessage}</Text><TouchableOpacity style={{ marginTop: 16, alignSelf: 'flex-start', backgroundColor: '#EF6C00', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 }} onPress={() => navigation.navigate('BloodRequestForm', { bloodType: 'O-', urgency: 'CRITICAL' })}><Text style={{ color: 'white', fontSize: 13, fontFamily: theme.typography.fontFamilyBold }}>Send Urgent Request</Text></TouchableOpacity></View>)}</Card>)}<View style={styles.section}><Text style={styles.sectionTitle}>Quick Actions</Text><View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}><TouchableOpacity style={[styles.quickAction, hasPendingReview && pendingReviews.length >= 3 && { opacity: 0.5 }]} onPress={() => { if (hasPendingReview && pendingReviews.length >= 3) { Alert.alert('Action Required', 'Please complete your pending donor reviews before submitting new blood requests.'); } else { navigation.navigate('BloodRequestForm'); } }}><Plus size={24} color={theme.colors.primary} weight="bold" /><Text style={styles.quickActionText}>Request</Text></TouchableOpacity><TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('FulfilledRequests')}><CheckCircle size={24} color={theme.colors.success} weight="bold" /><Text style={styles.quickActionText}>Fulfilled</Text></TouchableOpacity><TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('Inventory')}><Drop size={24} color={theme.colors.error} weight="bold" /><Text style={styles.quickActionText}>Inventory</Text></TouchableOpacity></View></View><View style={[styles.section, { marginTop: 24 }]}><View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Recent Activity</Text>{activities?.length > 5 && (<TouchableOpacity onPress={() => navigation.navigate('RecentActivities', { type: 'hospital' })}><Text style={styles.seeAll}>View All</Text></TouchableOpacity>)}</View>{activitiesLoading ? (<ActivityIndicator color={theme.colors.primary} />) : activities?.length > 0 ? (activities.slice(0, 5).map((activity: any) => { const themeInfo = getActivityIcon(activity.type); const Icon = themeInfo.icon; return (<TouchableOpacity key={activity.id} onPress={() => navigateToActivity(activity.title, activity.type, new Date(activity.createdAt || activity.date).toLocaleString(), activity.description)} style={styles.activityItem}><View style={[styles.activityIcon, { backgroundColor: themeInfo.bg }]}><Icon size={20} color={themeInfo.color} weight="fill" /></View><View style={styles.activityContent}><Text style={styles.activityTitle}>{activity.title}</Text><Text style={styles.activityTime}>{new Date(activity.createdAt || activity.date).toLocaleString()}</Text></View><CaretRight size={16} color={theme.colors.textSecondary} /></TouchableOpacity>); })) : (<Text style={{ color: theme.colors.textSecondary, textAlign: 'center', marginTop: 20 }}>No recent activity logged.</Text>)}</View>
       </ScrollView>
 
       {/* Filter Modal */}
@@ -661,6 +435,7 @@ export const HospitalDashboardScreen = ({ navigation }: { navigation: any }) => 
           </View>
         </View>
       </Modal>
+      <FloatingSupport />
     </SafeAreaView>
   );
 };

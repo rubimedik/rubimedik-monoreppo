@@ -123,6 +123,14 @@ export class UsersService {
         } catch (emailError) {
           console.error('DEBUG: Failed to send verification email', emailError);
         }
+      } else {
+        // Send welcome email to users who are already verified (e.g. Google Signup)
+        try {
+          const name = user.fullName || user.firstName || this.emailService.extractName(email);
+          await this.emailService.sendWelcomeEmail(email, name);
+        } catch (emailError) {
+          console.error('DEBUG: Failed to send welcome email', emailError);
+        }
       }
 
       await queryRunner.commitTransaction();
@@ -241,12 +249,27 @@ export class UsersService {
       throw new NotFoundException('User profile not found');
     }
 
-    const { fullName, phoneNumber, bloodGroup, bloodType, genotype, avatarUrl, isVerified, activeRole, donationGoal, isTwoFactorEnabled, twoFactorSecret, ...profileData } = data as any;
+    const { fullName, phoneNumber, bloodGroup, bloodType, genotype, avatarUrl, isVerified, activeRole, donationGoal, isTwoFactorEnabled, twoFactorSecret, bankName, bankCode, accountNumber, accountName, ...profileData } = data as any;
     const finalBloodGroup = bloodGroup || bloodType;
 
     // Update basic user info
     try {
-        await this.usersRepository.update(id, { fullName, phoneNumber, bloodGroup: finalBloodGroup, genotype, avatarUrl, isVerified, activeRole, donationGoal, isTwoFactorEnabled, twoFactorSecret });
+        await this.usersRepository.update(id, { 
+          fullName, 
+          phoneNumber, 
+          bloodGroup: finalBloodGroup, 
+          genotype, 
+          avatarUrl, 
+          isVerified, 
+          activeRole, 
+          donationGoal, 
+          isTwoFactorEnabled, 
+          twoFactorSecret,
+          bankName,
+          bankCode,
+          accountNumber,
+          accountName
+        });
     } catch (error) {
         this.logger.error(`Failed to update user ${id}: ${error.message}`, error.stack);
         throw new InternalServerErrorException('Could not update user profile. Database error.');

@@ -138,7 +138,7 @@ export class ConsultationsService {
   async findOne(id: string): Promise<Consultation> {
     const consultation = await this.consultationsRepository.findOne({
       where: { id },
-      relations: ['specialist', 'specialist.specialistProfile', 'patient', 'appointments'],
+      relations: ['specialist', 'specialist.specialistProfile', 'patient', 'appointments', 'supportTickets', 'supportTickets.chatRoom'],
     });
     if (!consultation) {
       throw new NotFoundException('Consultation not found');
@@ -149,14 +149,14 @@ export class ConsultationsService {
   async findByPatientId(patientId: string): Promise<Consultation[]> {
     return this.consultationsRepository.find({
       where: { patient: { id: patientId } },
-      relations: ['specialist', 'appointments'],
+      relations: ['specialist', 'appointments', 'supportTickets', 'supportTickets.chatRoom'],
     });
   }
 
   async findBySpecialistId(specialistId: string): Promise<Consultation[]> {
     return this.consultationsRepository.find({
       where: { specialist: { id: specialistId } },
-      relations: ['patient', 'appointments'],
+      relations: ['patient', 'appointments', 'supportTickets', 'supportTickets.chatRoom'],
     });
   }
 

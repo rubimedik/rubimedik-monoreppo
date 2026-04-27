@@ -131,4 +131,23 @@ export class WalletController {
       note: withdrawDto.note
     });
   }
+
+  @Version('1')
+  @Get('banks')
+  @ApiOperation({ summary: 'List all supported banks from Paystack' })
+  async listBanks() {
+    return this.paystackService.listBanks();
+  }
+
+  @Version('1')
+  @Get('banks/resolve')
+  @ApiOperation({ summary: 'Resolve a bank account number to a name' })
+  @ApiQuery({ name: 'accountNumber', type: String })
+  @ApiQuery({ name: 'bankCode', type: String })
+  async resolveAccount(
+    @Query('accountNumber') accountNumber: string,
+    @Query('bankCode') bankCode: string,
+  ) {
+    return this.paystackService.resolveAccountNumber(accountNumber, bankCode);
+  }
 }

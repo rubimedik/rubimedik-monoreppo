@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Appointment } from './appointment.entity';
+import { SupportTicket } from '../../support/entities/support-ticket.entity';
 import { ConsultationStatus, CancellationPolicy, PayoutStatus } from '@repo/shared';
 
 @Entity('consultations')
@@ -120,6 +121,9 @@ export class Consultation {
 
   @OneToMany(() => Appointment, (appointment) => appointment.consultation)
   appointments: Appointment[];
+
+  @OneToMany(() => SupportTicket, (ticket) => ticket.relatedConsultation)
+  supportTickets: SupportTicket[];
 
   @Column({ default: false })
   isPatientCheckedIn: boolean;

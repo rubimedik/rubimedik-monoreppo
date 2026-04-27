@@ -5,7 +5,7 @@ import { ChatRoom } from './entities/chat-room.entity';
 import { Message } from './entities/message.entity';
 import { User } from '../users/entities/user.entity';
 import { Consultation } from '../consultations/entities/consultation.entity';
-import { MessageType, PayoutStatus, ConsultationStatus } from '@repo/shared';
+import { MessageType, PayoutStatus, ConsultationStatus, SupportTicketStatus, UserRole } from '@repo/shared';
 import { format } from 'date-fns';
 import { AiService } from '../ai/ai.service';
 import { TrustScoreService } from '../users/trust-score.service';
@@ -13,16 +13,22 @@ import { ActivitiesService } from '../activities/activities.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ConfigService } from '@nestjs/config';
 import { RtcTokenBuilder, RtcRole } from 'agora-token';
+import { SupportTicket } from '../support/entities/support-ticket.entity';
+
+import { Subject } from 'rxjs';
 
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
+  public readonly messageEmitter = new Subject<any>();
 
   constructor(
     @InjectRepository(ChatRoom)
     private chatRoomsRepository: Repository<ChatRoom>,
     @InjectRepository(Message)
     private messagesRepository: Repository<Message>,
+    @InjectRepository(SupportTicket)
+    private supportTicketsRepository: Repository<SupportTicket>,
     private dataSource: DataSource,
     private aiService: AiService,
     private trustScoreService: TrustScoreService,
@@ -54,7 +60,8 @@ export class ChatService {
 
     if (room.consultation) {
         const allowedStatuses = [ConsultationStatus.CONFIRMED, ConsultationStatus.UPCOMING, ConsultationStatus.IN_PROGRESS];
-        if (!allowedStatuses.includes(room.consultation.status as any)) {
+        const status = room.consultation.status;
+        if (!status || !allowedStatuses.includes(status as any)) {
             throw new BadRequestException('Cannot start call for a completed or cancelled consultation.');
         }
     }
@@ -113,31 +120,89 @@ export class ChatService {
     });
 
     if (!room) {
-        // Check if ID is a consultation ID
-        const consultation = await this.dataSource.getRepository(Consultation).findOne({ 
+        // 1. Check if ID is a Support Ticket ID
+        const ticket = await this.supportTicketsRepository.findOne({
             where: { id },
-            relations: ['patient', 'specialist']
+            relations: ['chatRoom', 'user', 'assignedAdmin']
         });
 
-        if (consultation) {
-            room = new ChatRoom();
-            room.id = id;
-            room.consultation = consultation;
-            await this.chatRoomsRepository.save(room);
-            
-            // Reload with relations
-            room = await this.chatRoomsRepository.findOne({
-                where: { id },
-                relations: ['consultation', 'consultation.patient', 'consultation.specialist', 'patient', 'specialist'],
-            });
+        if (ticket) {
+            room = ticket.chatRoom;
         } else {
-            throw new NotFoundException('Chat room not found');
+            // 2. Check if ID is a consultation ID
+            const consultation = await this.dataSource.getRepository(Consultation).findOne({ 
+                where: { id },
+                relations: ['patient', 'specialist']
+            });
+
+            if (consultation) {
+                room = new ChatRoom();
+                room.id = id;
+                room.consultation = consultation;
+                await this.chatRoomsRepository.save(room);
+                
+                // Reload with relations
+                room = await this.chatRoomsRepository.findOne({
+                    where: { id },
+                    relations: ['consultation', 'consultation.patient', 'consultation.specialist', 'patient', 'specialist'],
+                });
+            } else {
+                // 3. Check if ID is a User ID (for Direct Chat/Support)
+                const otherUser = await this.dataSource.getRepository(User).findOne({ where: { id } });
+                if (otherUser) {
+                    // Try to find if a direct room already exists between these two users
+                    room = await this.chatRoomsRepository.findOne({
+                        where: [
+                            { patient: { id: userId }, specialist: { id: otherUser.id } },
+                            { patient: { id: otherUser.id }, specialist: { id: userId } }
+                        ],
+                        relations: ['patient', 'specialist']
+                    });
+
+                    if (!room) {
+                        // Create new direct room
+                        room = new ChatRoom();
+                        const currentUser = await this.dataSource.getRepository(User).findOne({ where: { id: userId } });
+                        
+                        if (currentUser.activeRole === 'SPECIALIST') {
+                            room.specialist = currentUser;
+                            room.patient = otherUser;
+                        } else {
+                            room.patient = currentUser;
+                            room.specialist = otherUser;
+                        }
+                        await this.chatRoomsRepository.save(room);
+                    }
+                } else {
+                    throw new NotFoundException('Chat room or partner not found');
+                }
+            }
         }
     }
 
-    const partner = (room.patient?.id === userId || room.consultation?.patient?.id === userId)
-      ? (room.specialist || room.consultation?.specialist)
-      : (room.patient || room.consultation?.patient);
+    // Identify partner for the room
+    // Check if it's a support ticket room first
+    const supportTicket = await this.supportTicketsRepository.findOne({
+        where: { chatRoom: { id: room.id } },
+        relations: ['user', 'assignedAdmin']
+    });
+
+    let partner: any;
+    const supportAvatar = 'https://res.cloudinary.com/africinnovate-technology/image/upload/v1777228149/rubimedik/support_icon.png'; // Placeholder or system icon
+
+    if (supportTicket) {
+        partner = (userId === supportTicket.user.id) 
+            ? (supportTicket.assignedAdmin || { id: 'admin', fullName: 'Rubimedik Support', avatarUrl: supportAvatar })
+            : supportTicket.user;
+        // Ensure system admin has the avatar even if assigned
+        if (partner.id === supportTicket.assignedAdmin?.id && !partner.avatarUrl) {
+            partner.avatarUrl = supportAvatar;
+        }
+    } else {
+        partner = (room.patient?.id === userId || room.consultation?.patient?.id === userId)
+            ? (room.specialist || room.consultation?.specialist)
+            : (room.patient || room.consultation?.patient);
+    }
 
     const getDisplayName = (u: any) => {
       if (u.fullName) return u.fullName;
@@ -148,8 +213,10 @@ export class ChatService {
 
     return {
       id: room.id,
-      consultationId: room.consultation.id,
-      status: room.consultation.status,
+      consultationId: room.consultation?.id,
+      status: supportTicket ? supportTicket.status : room.consultation?.status,
+      isSupport: !!supportTicket,
+      ticketStatus: supportTicket?.status,
       partner: {
         id: partner.id,
         fullName: getDisplayName(partner),
@@ -161,7 +228,7 @@ export class ChatService {
   }
 
   async findUserRooms(userId: string): Promise<any[]> {
-    // 1. Fetch all rooms where user is a participant (either as patient or specialist)
+    // 1. Fetch all rooms where user is a participant
     const rooms = await this.chatRoomsRepository.find({
         where: [
             { consultation: { patient: { id: userId } } },
@@ -173,13 +240,49 @@ export class ChatService {
         order: { updatedAt: 'DESC' }
     });
 
+    // 1.1 Fetch all support rooms for this user
+    const userTickets = await this.supportTicketsRepository.find({
+        where: [
+            { user: { id: userId } },
+            { assignedAdmin: { id: userId } }
+        ],
+        relations: ['chatRoom', 'user', 'assignedAdmin', 'chatRoom.consultation']
+    });
+
+    const allRooms = [...rooms];
+    for (const ticket of userTickets) {
+        if (ticket.chatRoom && !allRooms.some(r => r.id === ticket.chatRoom.id)) {
+            allRooms.push(ticket.chatRoom);
+        }
+    }
+
     // 2. Group these rooms by the "Partner" (the other person)
     const partnersMap = new Map<string, any>();
 
-    for (const room of rooms) {
-        const partner = (room.patient?.id === userId || room.consultation?.patient?.id === userId)
-            ? (room.specialist || room.consultation?.specialist)
-            : (room.patient || room.consultation?.patient);
+    for (const room of allRooms) {
+        // Find if this is a support room
+        const supportTicket = userTickets.find(t => t.chatRoom?.id === room.id) || 
+            await this.supportTicketsRepository.findOne({ 
+                where: { chatRoom: { id: room.id } },
+                relations: ['user', 'assignedAdmin']
+            });
+
+        let partner: any;
+        const supportAvatar = 'https://res.cloudinary.com/africinnovate-technology/image/upload/v1777228149/rubimedik/support_icon.png';
+
+        if (supportTicket) {
+            partner = (userId === supportTicket.user.id) 
+                ? (supportTicket.assignedAdmin || { id: 'admin', fullName: 'Rubimedik Support', avatarUrl: supportAvatar })
+                : supportTicket.user;
+            
+            if (partner.id === supportTicket.assignedAdmin?.id && !partner.avatarUrl) {
+                partner.avatarUrl = supportAvatar;
+            }
+        } else {
+            partner = (room.patient?.id === userId || room.consultation?.patient?.id === userId)
+                ? (room.specialist || room.consultation?.specialist)
+                : (room.patient || room.consultation?.patient);
+        }
 
         if (!partner) continue;
 
@@ -189,17 +292,20 @@ export class ChatService {
                 rooms: [],
                 latestMessage: null,
                 unreadCount: 0,
-                activeConsultation: null
+                activeConsultation: null,
+                isSupport: !!supportTicket,
+                ticketStatus: supportTicket?.status
             });
         }
         
         const entry = partnersMap.get(partner.id);
         entry.rooms.push(room.id);
         
-        // Track the most recent consultation as the "active" one for this row
-        // We also track the actual room ID associated with this pair
-        if (!entry.activeConsultation || new Date(room.consultation?.createdAt) > new Date(entry.activeConsultation.createdAt)) {
+        // Track the most recent consultation
+        if (room.consultation && (!entry.activeConsultation || new Date(room.consultation.createdAt) > new Date(entry.activeConsultation.createdAt))) {
             entry.activeConsultation = room.consultation;
+            entry.chatRoomId = room.id;
+        } else if (!entry.chatRoomId) {
             entry.chatRoomId = room.id;
         }
     }
@@ -226,24 +332,30 @@ export class ChatService {
             return u.email ? u.email.split('@')[0] : 'User';
         };
 
+        const supportTicket = await this.supportTicketsRepository.findOne({
+            where: { chatRoom: { id: entry.chatRoomId } }
+        });
+
         return {
             id: entry.chatRoomId || entry.rooms[0], // Use the unified Chat Room ID for the thread
             partnerId: entry.partner.id,
             consultationId: entry.activeConsultation?.id,
             status: entry.activeConsultation?.status,
+            isSupport: !!supportTicket,
+            ticketStatus: supportTicket?.status,
             chatLockedBy: entry.activeConsultation?.chatLockedBy,
             chatClosesAt: entry.activeConsultation?.chatClosesAt,
             lastMessage: latestMessage ? {
                 id: latestMessage.id,
                 content: latestMessage.content,
                 createdAt: latestMessage.createdAt,
-                senderId: latestMessage.sender.id,
-                senderName: getDisplayName(latestMessage.sender),
+                senderId: latestMessage.sender?.id,
+                senderName: latestMessage.sender ? getDisplayName(latestMessage.sender) : 'System',
             } : null,
             unreadCount,
             partner: {
                 id: entry.partner.id,
-                fullName: getDisplayName(entry.partner),
+                fullName: supportTicket ? 'Rubimedik Support' : getDisplayName(entry.partner),
                 avatarUrl: entry.partner.avatarUrl,
                 role: entry.partner.activeRole,
                 phone: entry.partner.phoneNumber || entry.partner.specialistProfile?.phoneNumber
@@ -267,43 +379,64 @@ export class ChatService {
     });
 
     if (!targetRoom) {
-        // Auto-create room if it's a valid consultation
-        const consultation = await this.dataSource.getRepository(Consultation).findOne({ 
+        // 1. Check if it's a Support Ticket ID
+        const ticket = await this.supportTicketsRepository.findOne({
             where: { id: roomId },
-            relations: ['patient', 'specialist']
+            relations: ['chatRoom']
         });
-
-        if (consultation) {
-            targetRoom = new ChatRoom();
-            targetRoom.id = roomId;
-            targetRoom.consultation = consultation;
-            await this.chatRoomsRepository.save(targetRoom);
-            
-            targetRoom = await this.chatRoomsRepository.findOne({
-                where: { id: roomId },
-                relations: ['consultation', 'consultation.patient', 'consultation.specialist', 'patient', 'specialist']
-            });
+        
+        if (ticket) {
+            targetRoom = ticket.chatRoom;
         } else {
-            throw new NotFoundException('Room not found');
+            // 2. Check if it's a consultation ID
+            const consultation = await this.dataSource.getRepository(Consultation).findOne({ 
+                where: { id: roomId },
+                relations: ['patient', 'specialist']
+            });
+
+            if (consultation) {
+                targetRoom = new ChatRoom();
+                targetRoom.id = roomId;
+                targetRoom.consultation = consultation;
+                await this.chatRoomsRepository.save(targetRoom);
+                
+                targetRoom = await this.chatRoomsRepository.findOne({
+                    where: { id: roomId },
+                    relations: ['consultation', 'consultation.patient', 'consultation.specialist', 'patient', 'specialist']
+                });
+            } else {
+                throw new NotFoundException('Room not found');
+            }
         }
     }
 
-    const partnerId = (targetRoom.patient?.id === userId || targetRoom.consultation?.patient?.id === userId)
-        ? (targetRoom.specialist?.id || targetRoom.consultation?.specialist?.id)
-        : (targetRoom.patient?.id || targetRoom.consultation?.patient?.id);
+    // Determine room IDs to fetch messages from
+    let roomIds: string[] = [];
 
-    // Find all shared rooms between these two specific users
-    const sharedRooms = await this.chatRoomsRepository.find({
-        where: [
-            { consultation: { patient: { id: userId }, specialist: { id: partnerId } } },
-            { consultation: { patient: { id: partnerId }, specialist: { id: userId } } },
-            { patient: { id: userId }, specialist: { id: partnerId } },
-            { patient: { id: partnerId }, specialist: { id: userId } },
-        ],
-        relations: ['consultation']
+    // Check if it's a support ticket room
+    const supportTicket = await this.supportTicketsRepository.findOne({
+        where: { chatRoom: { id: targetRoom.id } }
     });
 
-    const roomIds = sharedRooms.map(r => r.id);
+    if (supportTicket) {
+        // For support tickets, we only want messages from this specific room
+        roomIds = [targetRoom.id];
+    } else {
+        // For consultations/direct chats, find all shared rooms between these two specific users
+        const partnerId = (targetRoom.patient?.id === userId || targetRoom.consultation?.patient?.id === userId)
+            ? (targetRoom.specialist?.id || targetRoom.consultation?.specialist?.id)
+            : (targetRoom.patient?.id || targetRoom.consultation?.patient?.id);
+
+        const sharedRooms = await this.chatRoomsRepository.find({
+            where: [
+                { consultation: { patient: { id: userId }, specialist: { id: partnerId } } },
+                { consultation: { patient: { id: partnerId }, specialist: { id: userId } } },
+                { patient: { id: userId }, specialist: { id: partnerId } },
+                { patient: { id: partnerId }, specialist: { id: userId } },
+            ]
+        });
+        roomIds = sharedRooms.map(r => r.id);
+    }
 
     // 2. Fetch messages from all shared rooms, sorted by date DESC (for pagination)
     const [items, total] = await this.messagesRepository.findAndCount({
@@ -351,21 +484,34 @@ export class ChatService {
     });
 
     if (!room) {
-        const consultation = await this.dataSource.getRepository(Consultation).findOne({ where: { id: roomId } });
-        if (consultation) {
-            room = new ChatRoom();
-            room.id = roomId;
-            room.consultation = consultation;
-            await this.chatRoomsRepository.save(room);
+        // 1. Check if ID is a Support Ticket ID
+        const ticket = await this.supportTicketsRepository.findOne({
+            where: { id: roomId },
+            relations: ['chatRoom']
+        });
+
+        if (ticket) {
+            room = ticket.chatRoom;
         } else {
-            throw new NotFoundException('Chat room or consultation not found');
+            // 2. Check if ID is a consultation ID
+            const consultation = await this.dataSource.getRepository(Consultation).findOne({ where: { id: roomId } });
+            if (consultation) {
+                room = new ChatRoom();
+                room.id = roomId;
+                room.consultation = consultation;
+                await this.chatRoomsRepository.save(room);
+            } else {
+                throw new NotFoundException('Chat room or consultation not found');
+            }
         }
     }
 
-    // LOCK CHECK
+    // LOCK CHECK - Only for consultations
     const consultation = room.consultation as any;
-    if (consultation.status === 'ARCHIVED' || (consultation.chatClosesAt && new Date() > new Date(consultation.chatClosesAt))) {
-        throw new ForbiddenException('Chat is closed for this consultation');
+    if (consultation) {
+        if (consultation.status === 'ARCHIVED' || (consultation.chatClosesAt && new Date() > new Date(consultation.chatClosesAt))) {
+            throw new ForbiddenException('Chat is closed for this consultation');
+        }
     }
 
     const message = new Message();
@@ -404,7 +550,68 @@ export class ChatService {
 
     const savedMessage = await this.messagesRepository.save(message);
 
-    // Send Push Notification to partner
+    // AI Support Triage
+    // RELOAD ticket with relations to ensure assignedAdmin check works
+    const supportTicket = await this.supportTicketsRepository.findOne({
+        where: { chatRoom: { id: roomId } },
+        relations: ['user', 'assignedAdmin']
+    });
+
+    if (supportTicket) {
+        // AUTO-ASSIGN ADMIN: If sender is an admin and no admin is assigned yet
+        const sender = await this.dataSource.getRepository(User).findOne({ where: { id: userId } });
+        if (sender && sender.roles.includes(UserRole.ADMIN) && !supportTicket.assignedAdmin) {
+            supportTicket.assignedAdmin = sender;
+            if (supportTicket.status === SupportTicketStatus.AI_TRIAGE) {
+                supportTicket.status = SupportTicketStatus.ESCALATED;
+            }
+            await this.supportTicketsRepository.save(supportTicket);
+            this.logger.log(`Admin ${sender.email} auto-assigned to ticket ${supportTicket.id}`);
+        }
+    }
+
+    this.logger.log(`AI Triage Check: Room=${roomId}, Ticket=${supportTicket?.id}, Status=${supportTicket?.status}, Admin=${supportTicket?.assignedAdmin?.id}`);
+
+    if (supportTicket && (supportTicket.status === SupportTicketStatus.AI_TRIAGE || (supportTicket.status === SupportTicketStatus.ESCALATED && !supportTicket.assignedAdmin)) && userId !== supportTicket.user.id) {
+        // Don't respond if message is NOT from the ticket owner (prevent AI loop)
+    } else if (supportTicket && (supportTicket.status === SupportTicketStatus.AI_TRIAGE || (supportTicket.status === SupportTicketStatus.ESCALATED && !supportTicket.assignedAdmin))) {
+        this.logger.log(`AI Generating Response for ticket ${supportTicket.id}`);
+        this.aiService.generateSupportResponse(supportTicket, data.content).then(async (aiRes) => {
+            this.logger.log(`AI Response generated: ${aiRes.reply.substring(0, 20)}...`);
+            // Save AI reply
+            const aiMessage = new Message();
+            aiMessage.chatRoom = room;
+            aiMessage.sender = null; // System/AI
+            aiMessage.content = aiRes.reply;
+            aiMessage.type = MessageType.TEXT;
+            const savedAiMessage = await this.messagesRepository.save(aiMessage);
+            
+            // Emit to socket
+            this.messageEmitter.next({ roomId: room.id, message: savedAiMessage });
+
+            if (aiRes.shouldEscalate && supportTicket.status !== SupportTicketStatus.ESCALATED) {
+                this.logger.log(`AI Escalating ticket ${supportTicket.id}`);
+                supportTicket.status = SupportTicketStatus.ESCALATED;
+                await this.supportTicketsRepository.save(supportTicket);
+                
+                // Notify all admins of escalation
+                const admins = await this.dataSource.getRepository(User).createQueryBuilder('user')
+                    .where("'ADMIN' = ANY(user.roles)")
+                    .getMany();
+                
+                for (const admin of admins) {
+                    await this.notificationsService.sendToUser(admin.id, {
+                        title: 'Support Escalation',
+                        body: `A ticket has been escalated: ${supportTicket.subject}`,
+                        type: 'SUPPORT_TICKET',
+                        metadata: { ticketId: supportTicket.id, roomId: roomId }
+                    });
+                }
+            }
+        }).catch(err => this.logger.error(`AI Support generation failed: ${err.message}`));
+    }
+
+    // Send Push Notification
     try {
         const roomWithParticipants = await this.chatRoomsRepository.findOne({
             where: { id: roomId },
@@ -414,6 +621,47 @@ export class ChatService {
         if (roomWithParticipants) {
             const sender = await this.dataSource.getRepository(User).findOne({ where: { id: userId } });
             
+            // If it's a support ticket, notify assigned admin or ALL admins if escalated
+            if (supportTicket) {
+                const senderName = sender.fullName || sender.email.split('@')[0];
+                
+                if (supportTicket.assignedAdmin && userId !== supportTicket.assignedAdmin.id) {
+                    // Notify assigned admin
+                    await this.notificationsService.sendToUser(supportTicket.assignedAdmin.id, {
+                        title: `Support: ${senderName}`,
+                        body: data.content,
+                        type: 'CHAT_MESSAGE',
+                        metadata: { roomId, chatId: roomId, senderName }
+                    });
+                } else if (supportTicket.status === SupportTicketStatus.ESCALATED && userId === supportTicket.user.id) {
+                    // Notify ALL admins if escalated and message is from user
+                    const admins = await this.dataSource.getRepository(User).createQueryBuilder('user')
+                        .where("'ADMIN' = ANY(user.roles)")
+                        .getMany();
+                    
+                    for (const admin of admins) {
+                        if (admin.id !== userId) {
+                            await this.notificationsService.sendToUser(admin.id, {
+                                title: `Support (Escalated): ${senderName}`,
+                                body: data.content,
+                                type: 'CHAT_MESSAGE',
+                                metadata: { roomId, chatId: roomId, senderName }
+                            });
+                        }
+                    }
+                } else if (userId !== supportTicket.user.id) {
+                    // Notify user if message is from admin
+                    await this.notificationsService.sendToUser(supportTicket.user.id, {
+                        title: `Support Agent`,
+                        body: data.content,
+                        type: 'CHAT_MESSAGE',
+                        metadata: { roomId, chatId: roomId, senderName: 'Support Agent' }
+                    });
+                }
+                return savedMessage;
+            }
+
+            // Standard consultation chat logic...
             const participants = [
                 roomWithParticipants.patient,
                 roomWithParticipants.specialist,

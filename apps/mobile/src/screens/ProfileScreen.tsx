@@ -454,7 +454,7 @@ export const ProfileScreen = () => {
         }
       >
         <View style={styles.header}>
-          <Avatar name={profile?.fullName || user?.email} size={80} style={styles.avatar} />
+          <Avatar uri={profile?.avatarUrl} name={profile?.fullName || user?.email} size={80} style={styles.avatar} />
           <TouchableOpacity style={styles.editBtn} onPress={() => navigation.navigate('PersonalInformation')}>
             <PencilSimple size={16} color="white" weight="bold" />
           </TouchableOpacity>
@@ -490,14 +490,13 @@ export const ProfileScreen = () => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Settings</Text>
-          <View style={styles.menuCard}>
-            {menuItems.map((item, index) => {
+          <View style={styles.menuCard}>{menuItems.map((item, index) => {
               const Icon = item.icon;
               return (
                 <TouchableOpacity 
                   key={item.id} 
                   style={[styles.menuItem, index === menuItems.length - 1 && { borderBottomWidth: 0 }]}
-                  onPress={() => item.onPress ? item.onPress() : navigation.navigate(item.screen)}
+                  onPress={() => item.screen ? navigation.navigate(item.screen as any) : null}
                 >
                   <View style={[styles.iconWrap, { backgroundColor: item.color + '15' }]}>
                     <Icon size={20} color={item.color} weight="fill" />

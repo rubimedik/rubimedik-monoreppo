@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { TextInput, PrimaryButton, BackButton } from '../components';
+import { TextInput, PrimaryButton, BackButton, Select } from '../components';
 import { CaretLeft, Bank as BankIcon, Info, ShieldCheck } from 'phosphor-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { api } from '../services/api';
@@ -21,13 +21,29 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export const BankAccountScreen = () => {
   const { theme } = useAppTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
 
+  const [bankCode, setBankCode] = useState('');
   const [bankName, setBankName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
+  const [isResolving, setIsResolving] = useState(false);
+
+  // Fetch banks from Paystack
+  const { data: banks, isLoading: isBanksLoading } = useQuery({
+    queryKey: ['banks'],
+    queryFn: async () => {
+      const res = await api.get('/wallet/banks');
+      return res.data;
+    }
+  });
+
+  const bankOptions = useMemo(() => {
+    if (!banks) return [];
+    return banks.map((b: any) => ({ label: b.name, value: b.code }));
+  }, [banks]);
 
   // Determine endpoint based on role
   const isSpecialist = user?.activeRole === 'SPECIALIST';
@@ -109,11 +125,33 @@ export const BankAccountScreen = () => {
 
   useEffect(() => {
     if (profile) {
+      setBankCode(profile.bankCode || '');
       setBankName(profile.bankName || '');
       setAccountNumber(profile.accountNumber || '');
       setAccountName(profile.accountName || '');
     }
   }, [profile]);
+
+  // Auto-resolve account name when 10 digits are entered
+  useEffect(() => {
+    if (accountNumber.length === 10 && bankCode) {
+      const resolveAccount = async () => {
+        setIsResolving(true);
+        try {
+          const res = await api.get(`/wallet/banks/resolve?accountNumber=${accountNumber}&bankCode=${bankCode}`);
+          if (res.data && res.data.account_name) {
+              setAccountName(res.data.account_name);
+          }
+        } catch (error: any) {
+          console.warn('Failed to resolve account:', error.message);
+          setAccountName('');
+        } finally {
+          setIsResolving(false);
+        }
+      };
+      resolveAccount();
+    }
+  }, [accountNumber, bankCode]);
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => api.put(updateEndpoint, data),
@@ -128,11 +166,11 @@ export const BankAccountScreen = () => {
   });
 
   const handleSave = () => {
-    if (!bankName || !accountNumber || !accountName) {
-      Alert.alert('Error', 'Please fill in all bank details.');
+    if (!bankCode || !accountNumber || !accountName) {
+      Alert.alert('Error', 'Please fill in all bank details and ensure account name is resolved.');
       return;
     }
-    updateMutation.mutate({ bankName, accountNumber, accountName });
+    updateMutation.mutate({ bankName, bankCode, accountNumber, accountName });
   };
 
   if (isLoading) {
@@ -165,13 +203,19 @@ export const BankAccountScreen = () => {
           </View>
 
           <View style={styles.form}>
-            <TextInput
-              label="Bank Name"
-              placeholder="e.g. GTBank"
-              value={bankName}
-              onChangeText={setBankName}
+            <Select
+              label="Select Bank"
+              placeholder={isBanksLoading ? "Loading banks..." : "Choose your bank"}
+              options={bankOptions}
+              value={bankCode}
+              onChange={(val) => {
+                  setBankCode(val);
+                  const bank = banks?.find((b: any) => b.code === val);
+                  if (bank) setBankName(bank.name);
+              }}
               leftIcon={<BankIcon size={20} color={theme.colors.textSecondary} />}
             />
+
             <TextInput
               label="Account Number"
               placeholder="10-digit number"
@@ -180,17 +224,29 @@ export const BankAccountScreen = () => {
               keyboardType="numeric"
               maxLength={10}
             />
-            <TextInput
-              label="Account Name"
-              placeholder="e.g. John Doe"
-              value={accountName}
-              onChangeText={setAccountName}
-            />
+
+            <View>
+                <TextInput
+                    label="Account Name"
+                    placeholder={isResolving ? "Resolving..." : "Resolved name will appear here"}
+                    value={accountName}
+                    onChangeText={setAccountName}
+                    editable={false}
+                />
+                {isResolving && (
+                    <ActivityIndicator 
+                        size="small" 
+                        color={theme.colors.primary} 
+                        style={{ position: 'absolute', right: 16, top: 40 }} 
+                    />
+                )}
+            </View>
 
             <PrimaryButton 
               label="Save Bank Info" 
               onPress={handleSave} 
               isLoading={updateMutation.isPending}
+              disabled={isResolving || !accountName}
               style={styles.saveButton}
             />
           </View>

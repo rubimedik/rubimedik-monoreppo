@@ -30,6 +30,12 @@ export class UsersController {
     return this.usersService.findOne(req.user.userId);
   }
 
+  @Put('profile')
+  @ApiOperation({ summary: 'Update user profile (alias for updateMe)' })
+  async updateProfile(@Request() req, @Body() updateUserDto: UpdateUserDto) {
+    return this.usersService.update(req.user.userId, updateUserDto);
+  }
+
   @Patch('me')
   @ApiOperation({ summary: 'Update current user profile' })
   @ApiResponse({ status: 200, description: 'Profile updated successfully' })

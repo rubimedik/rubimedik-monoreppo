@@ -61,6 +61,10 @@ export class SpecialistProfile {
   @Column({ nullable: true })
   bankName: string;
 
+  @ApiProperty({ example: '058', required: false })
+  @Column({ nullable: true })
+  bankCode: string;
+
   @ApiProperty({ example: '1234567890', required: false })
   @Column({ nullable: true })
   accountNumber: string;

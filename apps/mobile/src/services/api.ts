@@ -1,8 +1,18 @@
 import axios from 'axios';
 import { Alert } from 'react-native';
+import { Platform } from 'react-native';
 import { useAuthStore } from '../store/useAuthStore';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.152:3000/v1';
+// For Android Emulators, 10.0.2.2 is the magic IP to reach the host computer's localhost
+// For iOS Simulators, localhost works fine
+const LOCAL_IP = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+let API_URL = process.env.EXPO_PUBLIC_API_URL || `http://${LOCAL_IP}:3000/v1`;
+
+// Ensure we have a port if we're hitting localhost/10.0.2.2 and port is missing
+if ((API_URL.includes('localhost') || API_URL.includes('10.0.2.2')) && !API_URL.match(/:\d+/)) {
+    API_URL = API_URL.replace('/v1', ':3000/v1');
+}
+
 console.log('Connecting to API at:', API_URL);
 
 export const api = axios.create({

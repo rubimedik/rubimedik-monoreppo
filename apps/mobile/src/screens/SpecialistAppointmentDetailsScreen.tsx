@@ -233,8 +233,6 @@ export const SpecialistAppointmentDetailsScreen = () => {
     return diffInMinutes <= 30 && diffInMinutes >= -240;
   }, [consultation]);
 
-  if (isLoading) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator color={theme.colors.primary} /></View>;
-
   const isHeld = consultation?.payoutStatus === 'HELD';
   const isCompleted = consultation?.status === 'COMPLETED';
   const isPaid = consultation?.payoutStatus === 'PAID';
@@ -242,6 +240,13 @@ export const SpecialistAppointmentDetailsScreen = () => {
   const isPendingPayout = isFinalized && !isPaid;
   const isUpcoming = consultation?.status === 'UPCOMING' || consultation?.status === 'CONFIRMED';
   const hasFeedback = !!consultation?.specialistFeedback;
+
+  const activeSupportTicket = useMemo(() => {
+    if (!consultation?.supportTickets) return null;
+    return consultation.supportTickets.find((t: any) => t.status !== 'RESOLVED' && t.status !== 'CLOSED');
+  }, [consultation]);
+
+  if (isLoading) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator color={theme.colors.primary} /></View>;
 
   const displayPatientName = consultation?.patient?.fullName || consultation?.patient?.email?.split('@')[0] || 'Patient';
 
@@ -338,6 +343,20 @@ export const SpecialistAppointmentDetailsScreen = () => {
                 <Text style={{ fontSize: 12, color: theme.colors.textPrimary, fontFamily: theme.typography.fontFamilyMedium }}>
                     {isHeld ? (consultation?.payoutNote || 'Waiting for patient feedback or admin review.') : 'Please submit your consultation feedback to release the payout.'}
                 </Text>
+                {isHeld && activeSupportTicket && (
+                    <TouchableOpacity 
+                        style={{ marginTop: 12, backgroundColor: theme.colors.error, paddingVertical: 10, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+                        onPress={() => navigation.navigate('Chat', { 
+                            roomId: activeSupportTicket.id, 
+                            otherUserName: 'Rubimedik Support',
+                            isSupport: true,
+                            ticketStatus: activeSupportTicket.status
+                        })}
+                    >
+                        <ChatTeardropDots color="white" size={18} weight="fill" />
+                        <Text style={{ color: 'white', fontFamily: theme.typography.fontFamilyBold, fontSize: 13 }}>Resolve with Support</Text>
+                    </TouchableOpacity>
+                )}
             </View>
           )}
         </View>

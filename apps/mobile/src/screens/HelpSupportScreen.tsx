@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { BackButton } from '../components';
+import { api } from '../services/api';
 import { 
   Envelope, 
   Phone, 
@@ -18,13 +19,36 @@ import {
   FileText,
   Lock,
   Info,
-  CaretRight as CaretRightIcon
+  CaretRight as CaretRightIcon,
+  WarningCircle
 } from 'phosphor-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useAuthStore } from '../store/useAuthStore';
+import { UserRole } from '@repo/shared';
 
 export const HelpSupportScreen = () => {
   const { theme, isDarkMode } = useAppTheme();
   const navigation = useNavigation<any>();
+  const { user } = useAuthStore();
+  
+  const isMedicalRole = user?.activeRole === UserRole.PATIENT || user?.activeRole === UserRole.SPECIALIST;
+
+  const SUPPORT_USER_ID = '46d18e1b-2eb6-4f38-8917-35d82b075ace'; // Platform Admin
+
+  const handleLiveChat = async () => {
+    try {
+        // Find or create a room with the support user
+        const res = await api.get(`/chat/rooms/${SUPPORT_USER_ID}`);
+        const room = res.data;
+        
+        navigation.navigate('Chat', { 
+            roomId: room.id, 
+            otherUserName: 'Rubimedik Support',
+        });
+    } catch (error) {
+        Alert.alert('Chat Error', 'Could not initialize support chat. Please try email or call.');
+    }
+  };
 
   const openUrl = async (url: string) => {
     try {
@@ -41,7 +65,7 @@ export const HelpSupportScreen = () => {
       description: 'Chat with our support team',
       icon: ChatCircleText,
       color: theme.colors.primary,
-      onPress: () => Alert.alert('Coming Soon', 'Live chat support is coming soon!')
+      onPress: () => navigation.navigate('SupportTickets')
     },
     {
       id: 'email',
